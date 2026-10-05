@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- left ear -->
+    <path
+        android:fillColor="@color/sasi_body"
+        android:pathData="M30,40 C20,32 18,16 27,10 C36,4 46,12 45,26 C44,34 38,40 30,40 Z" />
+    <!-- right ear -->
+    <path
+        android:fillColor="@color/sasi_body"
+        android:pathData="M78,40 C88,32 90,16 81,10 C72,4 62,12 63,26 C64,34 70,40 78,40 Z" />
+    <!-- body blob -->
+    <path
+        android:fillColor="@color/sasi_body"
+        android:pathData="M54,20 C78,20 92,42 92,64 C92,86 74,100 54,100 C34,100 16,86 16,64 C16,42 30,20 54,20 Z" />
+
+</vector>

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- left ear -->
+    <path
+        android:fillColor="@color/sasi_body"
+        android:pathData="M30,40 C20,32 18,16 27,10 C36,4 46,12 45,26 C44,34 38,40 30,40 Z" />
+    <!-- right ear -->
+    <path
+        android:fillColor="@color/sasi_body"
+        android:pathData="M78,40 C88,32 90,16 81,10 C72,4 62,12 63,26 C64,34 70,40 78,40 Z" />
+    <!-- body blob -->
+    <path
+        android:fillColor="@color/sasi_body"
+        android:pathData="M54,20 C78,20 92,42 92,64 C92,86 74,100 54,100 C34,100 16,86 16,64 C16,42 30,20 54,20 Z" />
+    <!-- face -->
+    <path
+        android:fillColor="@color/ink"
+        android:pathData="M35,52 C32.2,52 30,55.1 30,59 C30,62.9 32.2,66 35,66 C37.8,66 40,62.9 40,59 C40,55.1 37.8,52 35,52 Z" />
+    <path
+        android:fillColor="@color/ink"
+        android:pathData="M73,52 C70.2,52 68,55.1 68,59 C68,62.9 70.2,66 73,66 C75.8,66 78,62.9 78,59 C78,55.1 75.8,52 73,52 Z" />
+    <path
+        android:strokeColor="@color/ink"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M46,72 Q54,78 62,72" />
+    <path
+        android:fillColor="@color/blush"
+        android:fillAlpha="0.55"
+        android:pathData="M21,68 a6,4 0 1,0 12,0 a6,4 0 1,0 -12,0" />
+    <path
+        android:fillColor="@color/blush"
+        android:fillAlpha="0.55"
+        android:pathData="M75,68 a6,4 0 1,0 12,0 a6,4 0 1,0 -12,0" />
+
+</vector>
