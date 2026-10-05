@@ -405,7 +405,7 @@ class CompanionView @JvmOverloads constructor(
             val lift = dp(6).toFloat()
             footLeft.translationY = -lift * max(0f, sin(phase))
             footRight.translationY = -lift * max(0f, sin(phase + PI.toFloat()))
-            val sway = sin(phase * 2f) * dp(1.5f)
+            val sway = sin(phase * 2f) * dp(2)
             bodyView.translationY = sway
             faceView.translationY = sway
             pushPosition()
