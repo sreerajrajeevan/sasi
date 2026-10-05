@@ -17,19 +17,24 @@ import android.widget.TextView
 import androidx.annotation.ColorInt
 import androidx.core.content.ContextCompat
 import com.sree.sasi.R
-import com.sree.sasi.reminders.ReminderEngine
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.max
 import kotlin.math.sin
 import kotlin.random.Random
 
 /**
  * The floating companion itself. A small WRAP_CONTENT window hosts this view;
  * the view owns its position and asks the [WindowManager] to move the window
- * via [bindWindow]. Contains a tinted body, a face layer (normal/happy/sleepy/
- * blink), a speech bubble, tap/drag handling, walk animation and sleep mode.
+ * via [bindWindow]. Contains a tinted body, two stepping feet, a face layer
+ * (normal/happy/sleepy/blink), a speech bubble, tap-to-bye, drag handling,
+ * smooth glide movement and sleep mode.
+ *
+ * Visibility model: the user can tap Sasi to say bye and hide it. It pops back
+ * (with [showForWarning]) only when the service has a warning to deliver, then
+ * hides itself again after [scheduleAutoHide] elapses.
  */
 class CompanionView @JvmOverloads constructor(
     context: Context,
@@ -46,6 +51,8 @@ class CompanionView @JvmOverloads constructor(
     private val charHolder: FrameLayout
     private val bodyView: ImageView
     private val faceView: ImageView
+    private val footLeft: ImageView
+    private val footRight: ImageView
     private val bubble: TextView
 
     private var wm: WindowManager? = null
@@ -54,6 +61,7 @@ class CompanionView @JvmOverloads constructor(
     private var mood = Mood.NORMAL
     private var sleeping = false
     private var dragging = false
+    private var hiddenByUser = false
 
     private var posX = 0f
     private var posY = 200f
@@ -77,7 +85,7 @@ class CompanionView @JvmOverloads constructor(
     private var downPosY = 0f
 
     private var hideBubbleRunnable: Runnable? = null
-    private var happyResetRunnable: Runnable? = null
+    private var autoHideRunnable: Runnable? = null
     private var resumeRunnable: Runnable? = null
 
     private val moveLoop = object : Runnable {
@@ -96,6 +104,7 @@ class CompanionView @JvmOverloads constructor(
                 downPosX = posX
                 downPosY = posY
                 pauseUntil = SystemClock.uptimeMillis() + 60_000L // paused until released
+                autoHideRunnable?.let { handler.removeCallbacks(it) }
                 resumeRunnable?.let { handler.removeCallbacks(it) }
                 v.parent?.requestDisallowInterceptTouchEvent(true)
                 true
@@ -117,12 +126,14 @@ class CompanionView @JvmOverloads constructor(
                 if (!dragging) {
                     pauseUntil = 0L
                     v.performClick()
-                    boop()
+                    byeAndHide()
                 } else {
                     dragging = false
                     resumeRunnable?.let { handler.removeCallbacks(it) }
-                    resumeRunnable = Runnable { pauseUntil = 0L }
-                        .also { handler.postDelayed(it, 3000) } // resume auto-walk after 3s
+                    resumeRunnable = Runnable {
+                        pauseUntil = 0L
+                        scheduleAutoHide(60_000L)
+                    }.also { handler.postDelayed(it, 3000) } // resume auto-walk after 3s
                 }
                 true
             }
@@ -154,6 +165,27 @@ class CompanionView @JvmOverloads constructor(
             isClickable = true
             isFocusable = false
         }
+        // Feet first so the body draws over them; they peek out below.
+        footLeft = ImageView(context).apply {
+            layoutParams = LayoutParams(dp(30), dp(18)).apply {
+                gravity = Gravity.BOTTOM or Gravity.START
+                leftMargin = dp(18)
+                bottomMargin = dp(2)
+            }
+            setImageResource(R.drawable.sasi_foot)
+            isClickable = false
+            isFocusable = false
+        }
+        footRight = ImageView(context).apply {
+            layoutParams = LayoutParams(dp(30), dp(18)).apply {
+                gravity = Gravity.BOTTOM or Gravity.END
+                rightMargin = dp(18)
+                bottomMargin = dp(2)
+            }
+            setImageResource(R.drawable.sasi_foot)
+            isClickable = false
+            isFocusable = false
+        }
         bodyView = ImageView(context).apply {
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
             setImageResource(R.drawable.sasi_body)
@@ -166,6 +198,8 @@ class CompanionView @JvmOverloads constructor(
             isClickable = false
             isFocusable = false
         }
+        charHolder.addView(footLeft)
+        charHolder.addView(footRight)
         charHolder.addView(bodyView)
         charHolder.addView(faceView)
         charHolder.setOnTouchListener(dragTouchListener)
@@ -239,13 +273,15 @@ class CompanionView @JvmOverloads constructor(
         velX = cos(angle) * speedPxPerSec
         velY = sin(angle) * speedPxPerSec
         bodyView.setColorFilter(color, PorterDuff.Mode.SRC_IN)
+        footLeft.setColorFilter(color, PorterDuff.Mode.SRC_IN)
+        footRight.setColorFilter(color, PorterDuff.Mode.SRC_IN)
     }
 
     fun setSleeping(isSleeping: Boolean) {
         if (sleeping == isSleeping) return
         sleeping = isSleeping
         mood = if (isSleeping) Mood.SLEEPY else Mood.NORMAL
-        alpha = if (isSleeping) 0.9f else 1f
+        alpha = if (isSleeping && !hiddenByUser) 0.9f else 1f
         refreshFace()
         if (!isSleeping) {
             moving = true
@@ -253,6 +289,8 @@ class CompanionView @JvmOverloads constructor(
             pickDirection()
         }
     }
+
+    fun isHiddenByUser(): Boolean = hiddenByUser
 
     fun speak(text: String) {
         bubble.text = text
@@ -265,6 +303,46 @@ class CompanionView @JvmOverloads constructor(
                 .withEndAction { bubble.visibility = GONE }
                 .start()
         }.also { handler.postDelayed(it, 4500) }
+    }
+
+    /** Tap behavior: say bye, then hide until the next warning. */
+    fun byeAndHide() {
+        if (hiddenByUser) return
+        autoHideRunnable?.let { handler.removeCallbacks(it) }
+        speak("Bye! \uD83D\uDC4B")
+        handler.postDelayed({ hideNow() }, 1100)
+    }
+
+    /** Pop back onto the screen to deliver a warning. */
+    fun showForWarning() {
+        hiddenByUser = false
+        autoHideRunnable?.let { handler.removeCallbacks(it) }
+        if (visibility != VISIBLE) {
+            visibility = VISIBLE
+        }
+        animate().cancel()
+        if (alpha < 1f) {
+            alpha = 0f
+            animate().alpha(1f).setDuration(300).start()
+        }
+        post { updateBounds(); pushPosition() }
+    }
+
+    /** Hide again automatically after [delayMillis] with no interaction. */
+    fun scheduleAutoHide(delayMillis: Long) {
+        autoHideRunnable?.let { handler.removeCallbacks(it) }
+        autoHideRunnable = Runnable { hideNow() }
+            .also { handler.postDelayed(it, delayMillis) }
+    }
+
+    private fun hideNow() {
+        if (hiddenByUser && visibility == GONE) return
+        hiddenByUser = true
+        autoHideRunnable?.let { handler.removeCallbacks(it) }
+        animate().cancel()
+        animate().alpha(0f).setDuration(250)
+            .withEndAction { visibility = GONE }
+            .start()
     }
 
     fun destroy() {
@@ -295,11 +373,9 @@ class CompanionView @JvmOverloads constructor(
         }
     }
 
-
     private fun step(dt: Float) {
-        if (sleeping || SystemClock.uptimeMillis() < pauseUntil) {
-            charHolder.translationY = 0f
-            charHolder.rotation = 0f
+        if (sleeping || hiddenByUser || SystemClock.uptimeMillis() < pauseUntil) {
+            resetPose()
             return
         }
         if (dragging) return
@@ -317,6 +393,7 @@ class CompanionView @JvmOverloads constructor(
         }
 
         if (moving) {
+            // Smooth glide; feet alternate lifts, body sways gently.
             val margin = dp(16).toFloat()
             posX += velX * dt
             posY += velY * dt
@@ -324,19 +401,31 @@ class CompanionView @JvmOverloads constructor(
             if (posX > maxX - margin) { posX = maxX - margin; velX = -abs(velX) }
             if (posY < margin) { posY = margin; velY = abs(velY) }
             if (posY > maxY - margin) { posY = maxY - margin; velY = -abs(velY) }
-            phase += dt * 2f * PI.toFloat() * 5f // ~5 hops per second
-            charHolder.translationY = -abs(sin(phase)) * dp(10)
-            charHolder.rotation = sin(phase) * 7f
+            phase += dt * 2f * PI.toFloat() * 2.4f // ~2.4 steps per second
+            val lift = dp(6).toFloat()
+            footLeft.translationY = -lift * max(0f, sin(phase))
+            footRight.translationY = -lift * max(0f, sin(phase + PI.toFloat()))
+            val sway = sin(phase * 2f) * dp(1.5f)
+            bodyView.translationY = sway
+            faceView.translationY = sway
             pushPosition()
         } else {
-            charHolder.translationY = 0f
-            charHolder.rotation = 0f
+            resetPose()
         }
+    }
+
+    private fun resetPose() {
+        footLeft.translationY = 0f
+        footRight.translationY = 0f
+        bodyView.translationY = 0f
+        faceView.translationY = 0f
+        charHolder.translationY = 0f
+        charHolder.rotation = 0f
     }
 
     private fun scheduleBlink() {
         handler.postDelayed({
-            if (!sleeping && !dragging) {
+            if (!sleeping && !dragging && !hiddenByUser) {
                 faceView.setImageResource(R.drawable.sasi_face_blink)
                 handler.postDelayed({ refreshFace() }, 140)
             }
@@ -353,46 +442,6 @@ class CompanionView @JvmOverloads constructor(
             },
         )
     }
-
-    private fun boop() {
-        mood = Mood.HAPPY
-        refreshFace()
-        happyResetRunnable?.let { handler.removeCallbacks(it) }
-        happyResetRunnable = Runnable {
-            if (!sleeping) {
-                mood = Mood.NORMAL
-                refreshFace()
-            }
-        }.also { handler.postDelayed(it, 1200) }
-
-        charHolder.animate().cancel()
-        charHolder.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150).withEndAction {
-            charHolder.animate().scaleX(1f).scaleY(1f).setDuration(200).start()
-        }.start()
-
-        heartPop()
-        speak(ReminderEngine.TAP_LINES.random(random))
-    }
-
-    private fun heartPop() {
-        val heart = ImageView(context).apply {
-            setImageResource(R.drawable.ic_heart)
-            layoutParams = LayoutParams(dp(22), dp(22)).apply {
-                gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-                bottomMargin = charSizePx / 2
-            }
-            isClickable = false
-            isFocusable = false
-        }
-        addView(heart)
-        heart.animate()
-            .translationY(-dp(52).toFloat())
-            .alpha(0f)
-            .setDuration(900)
-            .withEndAction { removeView(heart) }
-            .start()
-    }
-
 
     companion object {
         fun colorForTheme(index: Int, context: Context): Int =

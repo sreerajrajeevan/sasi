@@ -44,6 +44,7 @@ class CompanionService : Service() {
     companion object {
         const val ACTION_START = "com.sree.sasi.action.START"
         const val ACTION_STOP = "com.sree.sasi.action.STOP"
+        const val ACTION_TOGGLE = "com.sree.sasi.action.TOGGLE"
 
         fun start(context: Context) {
             ContextCompat.startForegroundService(
@@ -236,8 +237,13 @@ class CompanionService : Service() {
                         snapshot.walkSpeed,
                         CompanionView.colorForTheme(snapshot.colorTheme, this@CompanionService),
                     )
-                    if (shouldFire && reminder != null && interactive) {
-                        v.speak(reminder.bubble())
+                    if (shouldFire && reminder != null) {
+                        val isChatter = reminder is ReminderEngine.Reminder.IdleChatter
+                        if (!isChatter || !v.isHiddenByUser()) {
+                            v.showForWarning()
+                            if (interactive) v.speak(reminder.bubble())
+                            v.scheduleAutoHide(30_000L)
+                        }
                     }
                 }
             }
@@ -245,10 +251,24 @@ class CompanionService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) {
-            scope.launch { prefs.setCompanionEnabled(false) }
-            stopSelf()
-            return START_NOT_STICKY
+        when (intent?.action) {
+            ACTION_STOP -> {
+                scope.launch { prefs.setCompanionEnabled(false) }
+                stopSelf()
+                return START_NOT_STICKY
+            }
+            ACTION_TOGGLE -> {
+                val v = view
+                if (v != null) {
+                    if (v.isHiddenByUser()) {
+                        v.showForWarning()
+                        v.scheduleAutoHide(60_000L)
+                    } else {
+                        v.byeAndHide()
+                    }
+                }
+                return START_STICKY
+            }
         }
         return START_STICKY
     }

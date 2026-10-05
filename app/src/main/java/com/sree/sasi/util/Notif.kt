@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.media.RingtoneManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -49,11 +50,18 @@ object Notif {
             Intent(context, CompanionService::class.java).setAction(CompanionService.ACTION_STOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
+        val toggleIntent = PendingIntent.getService(
+            context,
+            3,
+            Intent(context, CompanionService::class.java).setAction(CompanionService.ACTION_TOGGLE),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_heart)
             .setContentTitle(context.getString(R.string.service_notif_title))
             .setContentText(context.getString(R.string.service_notif_text))
             .setContentIntent(openIntent)
+            .addAction(R.drawable.ic_heart, "Show / Hide", toggleIntent)
             .addAction(R.drawable.ic_heart, context.getString(R.string.action_stop), stopIntent)
             .setOngoing(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
@@ -75,6 +83,7 @@ object Notif {
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setContentIntent(openIntent)
             .setAutoCancel(true)
+            .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
         NotificationManagerCompat.from(context).notify(REMINDER_NOTIF_ID, notification)
