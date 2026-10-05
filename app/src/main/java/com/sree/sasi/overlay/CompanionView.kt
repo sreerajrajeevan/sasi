@@ -80,6 +80,56 @@ class CompanionView @JvmOverloads constructor(
     private var happyResetRunnable: Runnable? = null
     private var resumeRunnable: Runnable? = null
 
+    private val moveLoop = object : Runnable {
+        override fun run() {
+            step(0.05f)
+            handler.postDelayed(this, 50)
+        }
+    }
+
+    private val dragTouchListener = OnTouchListener { v, event ->
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                dragging = false
+                downRawX = event.rawX
+                downRawY = event.rawY
+                downPosX = posX
+                downPosY = posY
+                pauseUntil = SystemClock.uptimeMillis() + 60_000L // paused until released
+                resumeRunnable?.let { handler.removeCallbacks(it) }
+                v.parent?.requestDisallowInterceptTouchEvent(true)
+                true
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val dx = event.rawX - downRawX
+                val dy = event.rawY - downRawY
+                if (!dragging && (abs(dx) > touchSlop || abs(dy) > touchSlop)) {
+                    dragging = true
+                }
+                if (dragging) {
+                    posX = (downPosX + dx).coerceIn(0f, maxX)
+                    posY = (downPosY + dy).coerceIn(0f, maxY)
+                    pushPosition()
+                }
+                true
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                if (!dragging) {
+                    pauseUntil = 0L
+                    v.performClick()
+                    boop()
+                } else {
+                    dragging = false
+                    resumeRunnable?.let { handler.removeCallbacks(it) }
+                    resumeRunnable = Runnable { pauseUntil = 0L }
+                        .also { handler.postDelayed(it, 3000) } // resume auto-walk after 3s
+                }
+                true
+            }
+            else -> false
+        }
+    }
+
     init {
         charSizePx = dp(96)
         speedPxPerSec = dp(55).toFloat()
@@ -245,12 +295,6 @@ class CompanionView @JvmOverloads constructor(
         }
     }
 
-    private val moveLoop = object : Runnable {
-        override fun run() {
-            step(0.05f)
-            handler.postDelayed(this, 50)
-        }
-    }
 
     private fun step(dt: Float) {
         if (sleeping || SystemClock.uptimeMillis() < pauseUntil) {
@@ -349,48 +393,6 @@ class CompanionView @JvmOverloads constructor(
             .start()
     }
 
-    private val dragTouchListener = OnTouchListener { v, event ->
-        when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                dragging = false
-                downRawX = event.rawX
-                downRawY = event.rawY
-                downPosX = posX
-                downPosY = posY
-                pauseUntil = SystemClock.uptimeMillis() + 60_000L // paused until released
-                resumeRunnable?.let { handler.removeCallbacks(it) }
-                v.parent?.requestDisallowInterceptTouchEvent(true)
-                true
-            }
-            MotionEvent.ACTION_MOVE -> {
-                val dx = event.rawX - downRawX
-                val dy = event.rawY - downRawY
-                if (!dragging && (abs(dx) > touchSlop || abs(dy) > touchSlop)) {
-                    dragging = true
-                }
-                if (dragging) {
-                    posX = (downPosX + dx).coerceIn(0f, maxX)
-                    posY = (downPosY + dy).coerceIn(0f, maxY)
-                    pushPosition()
-                }
-                true
-            }
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                if (!dragging) {
-                    pauseUntil = 0L
-                    v.performClick()
-                    boop()
-                } else {
-                    dragging = false
-                    resumeRunnable?.let { handler.removeCallbacks(it) }
-                    resumeRunnable = Runnable { pauseUntil = 0L }
-                        .also { handler.postDelayed(it, 3000) } // resume auto-walk after 3s
-                }
-                true
-            }
-            else -> false
-        }
-    }
 
     companion object {
         fun colorForTheme(index: Int, context: Context): Int =
