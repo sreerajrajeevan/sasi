@@ -40,6 +40,21 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
+private fun visibilityMessage(state: String, hiddenUntil: Long): String {
+    return when (state) {
+        "HIDDEN_TEMPORARILY" -> {
+            val mins = ((hiddenUntil - System.currentTimeMillis()) / 60_000L).coerceAtLeast(1L)
+            stringResource(R.string.visibility_return_minutes, mins)
+        }
+        "HIDDEN_UNTIL_SCREEN_LOCK" -> stringResource(R.string.visibility_until_lock)
+        "HIDDEN_UNTIL_APP_OPEN" -> stringResource(R.string.visibility_until_app)
+        "HIDDEN_UNTIL_REMINDER" -> stringResource(R.string.visibility_until_reminder)
+        "DISABLED" -> stringResource(R.string.visibility_disabled)
+        else -> stringResource(R.string.visibility_until_reminder)
+    }
+}
+
+@Composable
 fun HomeScreen(onOpenSettings: () -> Unit) {
     val context = LocalContext.current
     val app = context.applicationContext as SasiApp
@@ -49,6 +64,8 @@ fun HomeScreen(onOpenSettings: () -> Unit) {
     val enabled by app.prefs.companionEnabled.collectAsState(initial = false)
     val goal by app.prefs.dailyGoalMinutes.collectAsState(initial = 240)
     val sessionMinutes by app.prefs.continuousMinutes.collectAsState(initial = 0)
+    val visibilityName by app.prefs.visibilityState.collectAsState(initial = "VISIBLE")
+    val hiddenUntil by app.prefs.hiddenUntilMillis.collectAsState(initial = 0L)
 
     var poll by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) {
@@ -76,6 +93,7 @@ fun HomeScreen(onOpenSettings: () -> Unit) {
                     )
                 } else {
                     app.prefs.setCompanionEnabled(true)
+                    app.prefs.setVisibilityState("VISIBLE")
                     CompanionService.start(context)
                 }
             } else {
@@ -124,6 +142,23 @@ fun HomeScreen(onOpenSettings: () -> Unit) {
                     )
                 }
                 Switch(checked = enabled, onCheckedChange = ::toggleCompanion)
+            }
+        }
+
+        if (enabled && visibilityName != "VISIBLE") {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = visibilityMessage(visibilityName, hiddenUntil),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Button(onClick = { CompanionService.bringBack(context) }) {
+                        Text(stringResource(R.string.action_bring_back))
+                    }
+                }
             }
         }
 

@@ -25,6 +25,7 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -66,6 +67,11 @@ fun SettingsScreen(onBack: () -> Unit) {
     val size by app.prefs.overlaySize.collectAsState(initial = 1)
     val speed by app.prefs.walkSpeed.collectAsState(initial = 1)
     val themeIndex by app.prefs.colorTheme.collectAsState(initial = 0)
+    val moveMode by app.prefs.movementMode.collectAsState(initial = 0)
+    val moveFreq by app.prefs.movementFrequency.collectAsState(initial = 1)
+    val tapReactions by app.prefs.tapReactions.collectAsState(initial = true)
+    val speechBubbles by app.prefs.speechBubbles.collectAsState(initial = true)
+    val hapticFeedback by app.prefs.hapticFeedback.collectAsState(initial = true)
 
     var nameDraft by remember(name) { mutableStateOf(name) }
 
@@ -280,9 +286,113 @@ fun SettingsScreen(onBack: () -> Unit) {
             }
         }
 
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.movement_title),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    text = stringResource(R.string.movement_mode_label),
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    listOf(
+                        stringResource(R.string.mode_free),
+                        stringResource(R.string.mode_edge),
+                        stringResource(R.string.mode_calm),
+                        stringResource(R.string.mode_locked),
+                    ).forEachIndexed { index, label ->
+                        SegmentedButton(
+                            selected = moveMode == index,
+                            onClick = { scope.launch { app.prefs.setMovementMode(index) } },
+                            shape = SegmentedButtonDefaults.itemShape(
+                                index = index,
+                                count = 4,
+                            ),
+                        ) {
+                            Text(label)
+                        }
+                    }
+                }
+                Text(
+                    text = stringResource(R.string.movement_freq_label),
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    listOf(
+                        stringResource(R.string.freq_low),
+                        stringResource(R.string.freq_normal),
+                        stringResource(R.string.freq_high),
+                    ).forEachIndexed { index, label ->
+                        SegmentedButton(
+                            selected = moveFreq == index,
+                            onClick = { scope.launch { app.prefs.setMovementFrequency(index) } },
+                            shape = SegmentedButtonDefaults.itemShape(
+                                index = index,
+                                count = 3,
+                            ),
+                        ) {
+                            Text(label)
+                        }
+                    }
+                }
+            }
+        }
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.interactions_title),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                SwitchRow(
+                    label = stringResource(R.string.tap_reactions_label),
+                    checked = tapReactions,
+                    onCheckedChange = { scope.launch { app.prefs.setTapReactions(it) } },
+                )
+                SwitchRow(
+                    label = stringResource(R.string.speech_bubbles_label),
+                    checked = speechBubbles,
+                    onCheckedChange = { scope.launch { app.prefs.setSpeechBubbles(it) } },
+                )
+                SwitchRow(
+                    label = stringResource(R.string.haptic_feedback_label),
+                    checked = hapticFeedback,
+                    onCheckedChange = { scope.launch { app.prefs.setHapticFeedback(it) } },
+                )
+            }
+        }
+
         Button(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.action_back))
         }
+    }
+}
+
+@Composable
+private fun SwitchRow(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f),
+        )
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 
