@@ -31,9 +31,9 @@ class ReminderEngine {
         fun text(): String = when (this) {
             is RestDue -> when {
                 minutes >= 90 ->
-                    "$name: Maybe give your eyes a tiny break? \U0001F331 ($minutes min and counting)"
+                    "$name: Maybe give your eyes a tiny break? 🌱 ($minutes min and counting)"
                 minutes >= 60 ->
-                    "$name: You've been here for a while \U0001F440 ($minutes min and counting)"
+                    "$name: You've been here for a while 👀 ($minutes min and counting)"
                 else ->
                     "$name: You've been scrolling for $minutes min \u2014 rest those eyes a little?"
             }
@@ -50,11 +50,11 @@ class ReminderEngine {
 
         fun bubble(): String = when (this) {
             is RestDue -> when {
-                minutes >= 90 -> "Eyes need a break? \U0001F331"
-                minutes >= 60 -> "Here a while? \U0001F440"
-                else -> "Rest those eyes? \U0001F97A"
+                minutes >= 90 -> "Eyes need a break? 🌱"
+                minutes >= 60 -> "Here a while? 👀"
+                else -> "Rest those eyes? 🥺"
             }
-            is BedtimeNudge -> "Sleepy time\u2026 \U0001F4A4"
+            is BedtimeNudge -> "Sleepy time\u2026 💤"
             is WakeGreeting -> "Good morning! \u2600\uFE0F"
             is Milestone -> "$hours h already? Balance! \u2696\uFE0F"
             is IdleChatter -> line

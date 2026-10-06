@@ -369,7 +369,7 @@ class CompanionView @JvmOverloads constructor(
             },
         ).toFloat()
         this.movementMode = movementMode.coerceIn(0, 3)
-        this.movementFrequency = movementFreq.coerceIn(0, 2)
+        this.movementFreq = movementFreq.coerceIn(0, 2)
         if (this.movementMode == 3) {
             moving = false
             hasTarget = false
