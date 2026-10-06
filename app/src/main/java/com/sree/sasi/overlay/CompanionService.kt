@@ -17,9 +17,12 @@ import android.provider.Settings
 import android.util.DisplayMetrics
 import android.view.Gravity
 import android.view.WindowManager
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.sree.sasi.SasiApp
+import com.sree.sasi.data.History
 import com.sree.sasi.data.Prefs
+import com.sree.sasi.data.PrefsSnapshot
 import com.sree.sasi.reminders.ReminderEngine
 import com.sree.sasi.screentime.ScreenTimeTracker
 import com.sree.sasi.util.Notif
@@ -43,6 +46,11 @@ import kotlinx.coroutines.withContext
  * A screen on/off receiver pauses the movement loop when the screen is off
  * (battery) and implements the hide-until-screen-lock restore.
  *
+ * Phase 2: the tick also advances focus/break timers (state persisted in
+ * Prefs, so restarts and reboots resume or gracefully expire them), overrides
+ * mood/movement while a timer runs, records day history, and mirrors the
+ * active timer in the foreground notification.
+ *
  * Started from onboarding, the Home toggle, or [com.sree.sasi.BootReceiver].
  * Background start from boot is permitted because the app holds
  * SYSTEM_ALERT_WINDOW (a background-FGS-start exemption).
@@ -54,6 +62,7 @@ class CompanionService : Service() {
         const val ACTION_STOP = "com.sree.sasi.action.STOP"
         const val ACTION_TOGGLE = "com.sree.sasi.action.TOGGLE"
         const val ACTION_SHOW = "com.sree.sasi.action.SHOW"
+        const val ACTION_CANCEL_MODE = "com.sree.sasi.action.CANCEL_MODE"
 
         fun start(context: Context) {
             ContextCompat.startForegroundService(
@@ -73,6 +82,13 @@ class CompanionService : Service() {
             ContextCompat.startForegroundService(
                 context,
                 Intent(context, CompanionService::class.java).setAction(ACTION_SHOW),
+            )
+        }
+
+        /** Cancel an active focus or break timer (Home button / notification). */
+        fun cancelModes(context: Context) {
+            context.startService(
+                Intent(context, CompanionService::class.java).setAction(ACTION_CANCEL_MODE),
             )
         }
 
@@ -102,6 +118,12 @@ class CompanionService : Service() {
     private var lastInteractMillis = 0L
     private var visibility = VisibilityState.VISIBLE
     private var lockHideArmed = false
+
+    // Phase 2: focus/break bookkeeping (timers themselves live in Prefs).
+    private var lastFocusBubbleAt = 0L
+    private var breakGreetedEndsAt = 0L
+    private var lastHistoryScreenMin = -1
+    private var lastModeNotifText: String? = null
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -223,6 +245,34 @@ class CompanionService : Service() {
             } catch (e: Exception) {
                 0
             }
+            val dayKey = Prefs.todayKey()
+
+            // --- History: event-driven, never on a hot loop ---
+            val history = History.load(snapshot.historyJson)
+            var historyDirty = false
+            if (dayKey != snapshot.historyDay) {
+                // Day rollover: yesterday keeps its last-known totals.
+                History.ensureDay(history, dayKey)
+                prefs.setHistoryDay(dayKey)
+                historyDirty = true
+                lastHistoryScreenMin = -1
+            }
+            if (tracker.takeEndedSession() != null) {
+                History.updateDay(history, dayKey) { it.copy(sessions = it.sessions + 1) }
+                historyDirty = true
+            }
+            if (todayMinutes != lastHistoryScreenMin) {
+                lastHistoryScreenMin = todayMinutes
+                History.updateDay(history, dayKey) { it.copy(screenMin = todayMinutes) }
+                historyDirty = true
+            }
+
+            // --- Focus / break timers (5s granularity is fine; state in Prefs) ---
+            val modes = handleModes(snapshot, history, dayKey, todayMinutes, now)
+            if (modes.historyDirty) historyDirty = true
+            if (historyDirty) {
+                prefs.setHistoryJson(History.save(history))
+            }
 
             // Mood.
             val bedtime = ReminderEngine.isBedtime(
@@ -243,6 +293,12 @@ class CompanionService : Service() {
                     inBedtimeWindow = bedtime,
                 ),
             )
+            // An active focus/break overrides the emotional state.
+            val effectiveMood = when {
+                modes.focusActive -> Mood.FOCUSED
+                modes.breakActive -> Mood.RESTING
+                else -> mood
+            }
 
             // Reminders.
             val input = ReminderEngine.Input(
@@ -274,18 +330,44 @@ class CompanionService : Service() {
             withContext(Dispatchers.Main) {
                 val v = view
                 if (v != null) {
-                    v.setMood(mood)
+                    v.setMood(effectiveMood)
+                    // Focus/break forces calm, minimal movement (prefs untouched).
+                    val calmOverride = modes.focusActive || modes.breakActive
                     v.applyPrefs(
                         snapshot.overlaySize,
                         snapshot.walkSpeed,
                         CompanionView.colorForTheme(snapshot.colorTheme, this@CompanionService),
-                        snapshot.movementMode,
-                        snapshot.movementFrequency,
+                        if (calmOverride) 2 else snapshot.movementMode,
+                        if (calmOverride) 0 else snapshot.movementFrequency,
                     )
                     v.tapReactionsEnabled = snapshot.tapReactions
                     v.speechBubblesEnabled = snapshot.speechBubbles
                     v.hapticEnabled = snapshot.hapticFeedback
                     v.refreshScreenSize()
+                }
+            }
+
+            // Foreground notification mirrors the active timer (only on change).
+            val modeText = when {
+                modes.focusActive ->
+                    "🎯 Focus ${ScreenTimeTracker.formatCountdown((snapshot.focusEndsAt - now).coerceAtLeast(0L))}"
+                modes.breakActive ->
+                    "🌱 Break ${ScreenTimeTracker.formatCountdown((snapshot.breakEndsAt - now).coerceAtLeast(0L))}"
+                else -> null
+            }
+            if (modeText != lastModeNotifText) {
+                lastModeNotifText = modeText
+                try {
+                    NotificationManagerCompat.from(this@CompanionService).notify(
+                        Notif.SERVICE_NOTIF_ID,
+                        Notif.serviceNotification(
+                            this@CompanionService,
+                            modeText,
+                            modeText != null,
+                        ),
+                    )
+                } catch (e: Exception) {
+                    // Notifications revoked; the timer itself still works.
                 }
             }
         }
@@ -320,6 +402,136 @@ class CompanionService : Service() {
             }
         }
         Notif.showReminder(this@CompanionService, reminder.title(), reminder.text())
+    }
+
+    // ------------------------------------------------------------------
+    // Focus & break timers (Phase 2)
+    // ------------------------------------------------------------------
+
+    private data class ModeResult(
+        val focusActive: Boolean,
+        val breakActive: Boolean,
+        val historyDirty: Boolean,
+    )
+
+    /**
+     * Advances focus/break timers. All state lives in Prefs, so a service
+     * restart or reboot resumes (or gracefully expires) the timer on the
+     * next tick. A focus start cancels a break and vice versa.
+     */
+    private suspend fun handleModes(
+        snapshot: PrefsSnapshot,
+        history: MutableList<com.sree.sasi.data.DayRecord>,
+        dayKey: String,
+        todayMinutes: Int,
+        now: Long,
+    ): ModeResult {
+        var dirty = false
+        var focusActive = snapshot.focusActive
+        var breakActive = snapshot.breakActive
+        val name = snapshot.companionName
+
+        // --- Focus ---
+        if (focusActive) {
+            if (now >= snapshot.focusEndsAt) {
+                focusActive = false
+                val endedWhileAway = now - snapshot.focusEndsAt > 90_000L
+                History.updateDay(history, dayKey) {
+                    it.copy(
+                        focusSessions = it.focusSessions + 1,
+                        focusMin = it.focusMin + snapshot.focusTotalMin,
+                        screenMin = todayMinutes,
+                    )
+                }
+                dirty = true
+                prefs.setFocusActive(false)
+                if (snapshot.focusPomodoro) {
+                    // Pomodoro: a 5-minute break, then the next cycle auto-starts.
+                    val breakEnds = now + 5 * 60_000L
+                    prefs.setBreakActive(true)
+                    prefs.setBreakEndsAt(breakEnds)
+                    prefs.setBreakTotalSec(300)
+                    prefs.setBreakIsPomodoro(true)
+                    breakActive = true
+                    breakGreetedEndsAt = breakEnds // skip the "stretch" greeting
+                    if (!endedWhileAway) {
+                        if (snapshot.speechBubbles) {
+                            withContext(Dispatchers.Main) {
+                                view?.flashMood(Mood.HAPPY, 2000)
+                                view?.speak("Cycle ${snapshot.focusCycle} done! Break 🌱")
+                            }
+                        }
+                        Notif.showQuietReminder(
+                            this,
+                            "$name: break time",
+                            "5-minute breather, then back to focus.",
+                        )
+                    }
+                } else if (!endedWhileAway) {
+                    // A focus completion is an event the user asked for: it may
+                    // bring Sasi back, like a reminder does.
+                    prefs.setVisibilityState(VisibilityState.VISIBLE.name)
+                    withContext(Dispatchers.Main) {
+                        ensureOverlay()
+                        view?.showForWarning()
+                        view?.flashMood(Mood.EXCITED, 2500)
+                        if (snapshot.speechBubbles) view?.speak("Focus complete! 🎉")
+                    }
+                    Notif.showReminder(
+                        this,
+                        "$name: focus complete 🎉",
+                        "Nice work — ${snapshot.focusTotalMin} focused minutes banked.",
+                    )
+                }
+            } else if (snapshot.speechBubbles &&
+                now - snapshot.focusStartedAt > 300_000L &&
+                now - lastFocusBubbleAt >= 300_000L
+            ) {
+                // Gentle timer bubble, roughly every 5 minutes.
+                lastFocusBubbleAt = now
+                val remain = (snapshot.focusEndsAt - now).coerceAtLeast(0L)
+                withContext(Dispatchers.Main) {
+                    view?.speak("🎯 ${ScreenTimeTracker.formatCountdown(remain)} left")
+                }
+            }
+        }
+
+        // --- Break ---
+        if (breakActive) {
+            if (snapshot.breakEndsAt != breakGreetedEndsAt) {
+                breakGreetedEndsAt = snapshot.breakEndsAt
+                if (snapshot.speechBubbles) {
+                    withContext(Dispatchers.Main) { view?.speak("Stretch a little 🌱") }
+                }
+            }
+            if (now >= snapshot.breakEndsAt) {
+                breakActive = false
+                prefs.setBreakActive(false)
+                if (snapshot.breakIsPomodoro) {
+                    // Next pomodoro focus cycle (25 min).
+                    val minutes = 25
+                    prefs.setFocusActive(true)
+                    prefs.setFocusEndsAt(now + minutes * 60_000L)
+                    prefs.setFocusTotalMin(minutes)
+                    prefs.setFocusPomodoro(true)
+                    prefs.setFocusCycle(snapshot.focusCycle + 1)
+                    prefs.setFocusStartedAt(now)
+                    focusActive = true
+                    lastFocusBubbleAt = 0L
+                    if (snapshot.speechBubbles) {
+                        withContext(Dispatchers.Main) { view?.speak("Back to focus 🎯") }
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        view?.flashMood(Mood.HAPPY, 1500)
+                        if (snapshot.speechBubbles) view?.speak("Back at it 💪")
+                    }
+                    Notif.showQuietReminder(this, "$name: break over", "Back at it 💪")
+                }
+            }
+        }
+
+        return ModeResult(focusActive, breakActive, dirty)
     }
 
     /** Applies the current [visibility] to the overlay (main thread). */
@@ -540,6 +752,13 @@ class CompanionService : Service() {
                         view?.showForWarning()
                         view?.scheduleAutoHide(60_000L)
                     }
+                }
+                return START_STICKY
+            }
+            ACTION_CANCEL_MODE -> {
+                scope.launch {
+                    prefs.setFocusActive(false)
+                    prefs.setBreakActive(false)
                 }
                 return START_STICKY
             }

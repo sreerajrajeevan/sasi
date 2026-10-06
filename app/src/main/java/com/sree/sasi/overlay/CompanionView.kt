@@ -734,7 +734,8 @@ class CompanionView @JvmOverloads constructor(
                 Mood.SLEEPY -> R.drawable.sasi_face_sleepy
                 Mood.WORRIED -> R.drawable.sasi_face_worried
                 Mood.RESTING -> R.drawable.sasi_face_sleepy
-                else -> R.drawable.sasi_face_normal // NORMAL, BORED, FOCUSED
+                Mood.FOCUSED -> R.drawable.sasi_face_happy
+                else -> R.drawable.sasi_face_normal // NORMAL, BORED
             },
         )
     }
