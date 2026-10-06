@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- happy arc left eye -->
+    <path
+        android:strokeColor="@color/ink"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M28,60 Q35,52 42,60" />
+    <!-- happy arc right eye -->
+    <path
+        android:strokeColor="@color/ink"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M66,60 Q73,52 80,60" />
+    <!-- big open smile -->
+    <path
+        android:fillColor="@color/ink"
+        android:pathData="M44,69 C46,82 62,82 64,69 C58,73 50,73 44,69 Z" />
+    <!-- blush -->
+    <path
+        android:fillColor="@color/blush"
+        android:fillAlpha="0.55"
+        android:pathData="M21,68 a6,4 0 1,0 12,0 a6,4 0 1,0 -12,0" />
+    <path
+        android:fillColor="@color/blush"
+        android:fillAlpha="0.55"
+        android:pathData="M75,68 a6,4 0 1,0 12,0 a6,4 0 1,0 -12,0" />
+
+</vector>

@@ -6,18 +6,29 @@ wind down at bedtime, and wake up to a greeting in the morning.
 
 ## Features
 
-- **Floating overlay** — Sasi (a tiny blob with ears) walks, hops, idles, and
-  blinks on top of any app. Tap it for a happy boop + heart pop; drag it
-  anywhere; it resumes wandering after 3 seconds.
-- **Wellness reminders** — rest breaks after N minutes of continuous use,
-  bedtime nudges, morning greetings, 2h/4h/6h screen-time milestones, and idle
-  chatter. Reminders appear as notifications *and* in Sasi's speech bubble.
+- **Floating overlay** — Sasi (a tiny blob with ears) glides between
+  waypoints with small stepping feet, mostly near screen edges, and idles with
+  subtle breathing, occasional glances, and yawns when tired. Tap for a tiny
+  reaction (jump, blink, wave, or a *boop*); double-tap for an excited jump;
+  drag it anywhere — the spot is remembered.
+- **Moods** — Sasi reacts to your day: happy after you interact, worried after
+  an hour of continuous screen time, tired after 90 minutes, sleepy in your
+  bedtime window (movement pauses then). Each mood gets its own face.
+- **Long-press hide menu** — hold Sasi for a second to hide it for 15 minutes
+  or an hour, until you lock your screen, until the next reminder, or turn it
+  off entirely. Sasi only pops back for real warnings (rest, bedtime, wake);
+  gentle nudges and chatter are bubble-only and never interrupt.
+- **Wellness reminders** — rest breaks after N minutes of continuous use
+  (with a soft bubble-only nudge at 45 min), bedtime nudges, morning
+  greetings, 2h/4h/6h screen-time milestones, and idle chatter. Real warnings
+  appear as notifications *with sound* and in Sasi's speech bubble.
+- **Movement & interaction settings** — roam style (Free / Edge / Calm /
+  Locked), wander frequency (Low / Normal / High), tap reactions, speech
+  bubbles, and haptic feedback toggles.
 - **Sleep mode** — inside your bedtime window Sasi gets sleepy, stops moving,
   and dims slightly.
 - **Screen-time dashboard** — today's total, current session, and progress
   toward your daily goal (all computed on-device via UsageStatsManager).
-- **Customization** — name, rest interval, bedtime/wake times, daily goal,
-  size (S/M/L), walk speed (Slow/Normal/Zippy), and 4 body colors.
 - **Privacy-first** — everything stays on the device. No accounts, no ads,
   no analytics, no network calls. See [docs/PRIVACY_POLICY.md](docs/PRIVACY_POLICY.md).
 

@@ -66,4 +66,30 @@
     <string name="speed_normal">Normal</string>
     <string name="speed_zippy">Zippy</string>
     <string name="color_theme_label">Companion color</string>
+
+    <!-- Movement -->
+    <string name="movement_title">Movement</string>
+    <string name="movement_mode_label">Roam style</string>
+    <string name="mode_free">Free</string>
+    <string name="mode_edge">Edge</string>
+    <string name="mode_calm">Calm</string>
+    <string name="mode_locked">Locked</string>
+    <string name="movement_freq_label">Wander frequency</string>
+    <string name="freq_low">Low</string>
+    <string name="freq_normal">Normal</string>
+    <string name="freq_high">High</string>
+
+    <!-- Interactions -->
+    <string name="interactions_title">Interactions</string>
+    <string name="tap_reactions_label">Tap reactions</string>
+    <string name="speech_bubbles_label">Speech bubbles</string>
+    <string name="haptic_feedback_label">Haptic feedback</string>
+
+    <!-- Visibility -->
+    <string name="visibility_return_minutes">Sasi is taking a break and will return in %1$d minutes.</string>
+    <string name="visibility_until_lock">Sasi is resting until you lock and unlock your screen.</string>
+    <string name="visibility_until_app">Sasi will come back the next time you open the app.</string>
+    <string name="visibility_until_reminder">Sasi is hidden until the next reminder.</string>
+    <string name="visibility_disabled">Companion is off.</string>
+    <string name="action_bring_back">Bring Sasi Back</string>
 </resources>

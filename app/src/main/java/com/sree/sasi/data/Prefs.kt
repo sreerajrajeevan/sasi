@@ -3,7 +3,9 @@ package com.sree.sasi.data
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -32,6 +34,17 @@ data class PrefsSnapshot(
     val continuousMinutes: Int,
     val firedDay: String,
     val firedKeys: Set<String>,
+    // Phase 1: visibility + movement + interaction prefs
+    val visibilityState: String,
+    val hiddenUntilMillis: Long,
+    val movementMode: Int,
+    val movementFrequency: Int,
+    val posX: Float,
+    val posY: Float,
+    val tapReactions: Boolean,
+    val speechBubbles: Boolean,
+    val hapticFeedback: Boolean,
+    val lockHideArmed: Boolean,
 )
 
 class Prefs(private val context: Context) {
@@ -52,6 +65,16 @@ class Prefs(private val context: Context) {
         private val KEY_CONTINUOUS_MINUTES = intPreferencesKey("continuous_minutes")
         private val KEY_FIRED_DAY = stringPreferencesKey("fired_day")
         private val KEY_FIRED_KEYS = stringSetPreferencesKey("fired_keys")
+        private val KEY_VISIBILITY = stringPreferencesKey("visibility_state")
+        private val KEY_HIDDEN_UNTIL = longPreferencesKey("hidden_until_millis")
+        private val KEY_MOVEMENT_MODE = intPreferencesKey("movement_mode")
+        private val KEY_MOVEMENT_FREQ = intPreferencesKey("movement_frequency")
+        private val KEY_POS_X = floatPreferencesKey("pos_x")
+        private val KEY_POS_Y = floatPreferencesKey("pos_y")
+        private val KEY_TAP_REACTIONS = booleanPreferencesKey("tap_reactions")
+        private val KEY_SPEECH_BUBBLES = booleanPreferencesKey("speech_bubbles")
+        private val KEY_HAPTIC = booleanPreferencesKey("haptic_feedback")
+        private val KEY_LOCK_ARMED = booleanPreferencesKey("lock_hide_armed")
 
         fun todayKey(): String =
             SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
@@ -85,6 +108,26 @@ class Prefs(private val context: Context) {
         context.dataStore.data.map { it[KEY_CONTINUOUS_MINUTES] ?: 0 }
     val firedKeys: Flow<Set<String>> =
         context.dataStore.data.map { it[KEY_FIRED_KEYS] ?: emptySet() }
+    val visibilityState: Flow<String> =
+        context.dataStore.data.map { it[KEY_VISIBILITY] ?: "VISIBLE" }
+    val hiddenUntilMillis: Flow<Long> =
+        context.dataStore.data.map { it[KEY_HIDDEN_UNTIL] ?: 0L }
+    val movementMode: Flow<Int> =
+        context.dataStore.data.map { it[KEY_MOVEMENT_MODE] ?: 0 }
+    val movementFrequency: Flow<Int> =
+        context.dataStore.data.map { it[KEY_MOVEMENT_FREQ] ?: 1 }
+    val posX: Flow<Float> =
+        context.dataStore.data.map { it[KEY_POS_X] ?: -1f }
+    val posY: Flow<Float> =
+        context.dataStore.data.map { it[KEY_POS_Y] ?: -1f }
+    val tapReactions: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_TAP_REACTIONS] ?: true }
+    val speechBubbles: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_SPEECH_BUBBLES] ?: true }
+    val hapticFeedback: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_HAPTIC] ?: true }
+    val lockHideArmed: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_LOCK_ARMED] ?: false }
 
     suspend fun setCompanionName(value: String) {
         context.dataStore.edit { it[KEY_NAME] = value }
@@ -136,6 +179,45 @@ class Prefs(private val context: Context) {
         context.dataStore.edit { it[KEY_CONTINUOUS_MINUTES] = value.coerceAtLeast(0) }
     }
 
+    suspend fun setVisibilityState(value: String) {
+        context.dataStore.edit { it[KEY_VISIBILITY] = value }
+    }
+
+    suspend fun setHiddenUntilMillis(value: Long) {
+        context.dataStore.edit { it[KEY_HIDDEN_UNTIL] = value.coerceAtLeast(0L) }
+    }
+
+    suspend fun setMovementMode(value: Int) {
+        context.dataStore.edit { it[KEY_MOVEMENT_MODE] = value.coerceIn(0, 3) }
+    }
+
+    suspend fun setMovementFrequency(value: Int) {
+        context.dataStore.edit { it[KEY_MOVEMENT_FREQ] = value.coerceIn(0, 2) }
+    }
+
+    suspend fun setPos(x: Float, y: Float) {
+        context.dataStore.edit {
+            it[KEY_POS_X] = x
+            it[KEY_POS_Y] = y
+        }
+    }
+
+    suspend fun setTapReactions(value: Boolean) {
+        context.dataStore.edit { it[KEY_TAP_REACTIONS] = value }
+    }
+
+    suspend fun setSpeechBubbles(value: Boolean) {
+        context.dataStore.edit { it[KEY_SPEECH_BUBBLES] = value }
+    }
+
+    suspend fun setHapticFeedback(value: Boolean) {
+        context.dataStore.edit { it[KEY_HAPTIC] = value }
+    }
+
+    suspend fun setLockHideArmed(value: Boolean) {
+        context.dataStore.edit { it[KEY_LOCK_ARMED] = value }
+    }
+
     /** Records a fired reminder key, rolling the dedupe set over at day change. */
     suspend fun markFired(key: String) {
         val today = todayKey()
@@ -166,6 +248,16 @@ class Prefs(private val context: Context) {
             continuousMinutes = data[KEY_CONTINUOUS_MINUTES] ?: 0,
             firedDay = data[KEY_FIRED_DAY] ?: "",
             firedKeys = data[KEY_FIRED_KEYS] ?: emptySet(),
+            visibilityState = data[KEY_VISIBILITY] ?: "VISIBLE",
+            hiddenUntilMillis = data[KEY_HIDDEN_UNTIL] ?: 0L,
+            movementMode = data[KEY_MOVEMENT_MODE] ?: 0,
+            movementFrequency = data[KEY_MOVEMENT_FREQ] ?: 1,
+            posX = data[KEY_POS_X] ?: -1f,
+            posY = data[KEY_POS_Y] ?: -1f,
+            tapReactions = data[KEY_TAP_REACTIONS] ?: true,
+            speechBubbles = data[KEY_SPEECH_BUBBLES] ?: true,
+            hapticFeedback = data[KEY_HAPTIC] ?: true,
+            lockHideArmed = data[KEY_LOCK_ARMED] ?: false,
         )
     }
 }

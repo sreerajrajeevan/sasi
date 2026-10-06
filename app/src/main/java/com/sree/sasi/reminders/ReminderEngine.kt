@@ -16,6 +16,8 @@ class ReminderEngine {
         data class WakeGreeting(val name: String) : Reminder
         data class Milestone(val name: String, val hours: Int) : Reminder
         data class IdleChatter(val name: String, val line: String) : Reminder
+        /** Soft bubble-only nudge: never makes a sound or a notification. */
+        data class GentleNudge(val name: String, val line: String) : Reminder
 
         fun title(): String = when (this) {
             is RestDue -> "$name says take a break"
@@ -23,11 +25,18 @@ class ReminderEngine {
             is WakeGreeting -> "Good morning!"
             is Milestone -> "$hours hours of screen time"
             is IdleChatter -> name
+            is GentleNudge -> name
         }
 
         fun text(): String = when (this) {
-            is RestDue ->
-                "$name: You've been scrolling for $minutes min \u2014 rest those eyes a little?"
+            is RestDue -> when {
+                minutes >= 90 ->
+                    "$name: Maybe give your eyes a tiny break? \U0001F331 ($minutes min and counting)"
+                minutes >= 60 ->
+                    "$name: You've been here for a while \U0001F440 ($minutes min and counting)"
+                else ->
+                    "$name: You've been scrolling for $minutes min \u2014 rest those eyes a little?"
+            }
             is BedtimeNudge ->
                 "It's past $bedtimeLabel \u2014 sleepy time. Let's wind down together. \u2014 $name"
             is WakeGreeting ->
@@ -35,14 +44,21 @@ class ReminderEngine {
             is Milestone ->
                 "You've hit $hours hours of screen time today. $name believes in balance!"
             is IdleChatter -> line
+            is GentleNudge -> line
         }
 
+
         fun bubble(): String = when (this) {
-            is RestDue -> "Rest those eyes? 🥺"
-            is BedtimeNudge -> "Sleepy time… 💤"
-            is WakeGreeting -> "Good morning! ☀️"
-            is Milestone -> "$hours h already? Balance! ⚖️"
+            is RestDue -> when {
+                minutes >= 90 -> "Eyes need a break? \U0001F331"
+                minutes >= 60 -> "Here a while? \U0001F440"
+                else -> "Rest those eyes? \U0001F97A"
+            }
+            is BedtimeNudge -> "Sleepy time\u2026 \U0001F4A4"
+            is WakeGreeting -> "Good morning! \u2600\uFE0F"
+            is Milestone -> "$hours h already? Balance! \u2696\uFE0F"
             is IdleChatter -> line
+            is GentleNudge -> line
         }
     }
 
@@ -89,21 +105,28 @@ class ReminderEngine {
             }
         }
 
-        // 3. Rest reminder: once per continuous screen session.
+        // 3. Gentle nudge: bubble-only, at 45 min continuous, max once per 30 min.
+        if (input.isInteractive && input.continuousMinutes >= 45) {
+            val bucket = input.nowMillis / 1_800_000L
+            val gkey = "gentle:${input.sessionStartMillis}:$bucket"
+            if (gkey !in fired) return Reminder.GentleNudge(input.name, GENTLE_LINES.random())
+        }
+
+        // 4. Rest reminder: once per continuous screen session.
         if (input.isInteractive && input.continuousMinutes >= input.restIntervalMinutes) {
             if ("rest:${input.sessionStartMillis}" !in fired) {
                 return Reminder.RestDue(input.name, input.continuousMinutes)
             }
         }
 
-        // 4. Screen-time milestones at 2h / 4h / 6h, once per day each.
+        // 5. Screen-time milestones at 2h / 4h / 6h, once per day each.
         for (hours in listOf(6, 4, 2)) {
             if (input.todayScreenMinutes >= hours * 60 && "ms:$hours:$dayKey" !in fired) {
                 return Reminder.Milestone(input.name, hours)
             }
         }
 
-        // 5. Idle chatter: a cute line every ~3 minutes of active use (5s ticks).
+        // 6. Idle chatter: a cute line every ~3 minutes of active use (5s ticks).
         if (input.isInteractive && input.tickCount % 36 == 0) {
             return Reminder.IdleChatter(input.name, IDLE_LINES.random())
         }
@@ -118,11 +141,13 @@ class ReminderEngine {
             dayKey: String,
             sessionStartMillis: Long,
             tickCount: Int,
+            nowMillis: Long,
         ): String? = when (reminder) {
             is Reminder.WakeGreeting -> "wake:$dayKey"
             is Reminder.BedtimeNudge -> "bed:$dayKey"
             is Reminder.RestDue -> "rest:$sessionStartMillis"
             is Reminder.Milestone -> "ms:${reminder.hours}:$dayKey"
+            is Reminder.GentleNudge -> "gentle:$sessionStartMillis:${nowMillis / 1_800_000L}"
             is Reminder.IdleChatter -> null
         }
 
@@ -179,6 +204,14 @@ class ReminderEngine {
             "Best friends forever!",
             "You're doing great today!",
             "Again! Again!",
+        )
+
+        val GENTLE_LINES = listOf(
+            "Water? \uD83D\uDCA7",
+            "Quick eye break? \uD83D\uDC40",
+            "Stretch for a sec? \uD83D\uDE46",
+            "Blink a few times for me?",
+            "Shoulders back, chin up \u2728",
         )
     }
 }
