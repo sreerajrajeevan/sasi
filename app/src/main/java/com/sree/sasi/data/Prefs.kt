@@ -45,6 +45,41 @@ data class PrefsSnapshot(
     val speechBubbles: Boolean,
     val hapticFeedback: Boolean,
     val lockHideArmed: Boolean,
+    // Phase 2: focus/break timers + history
+    val focusActive: Boolean,
+    val focusEndsAt: Long,
+    val focusTotalMin: Int,
+    val focusPomodoro: Boolean,
+    val focusCycle: Int,
+    val focusStartedAt: Long,
+    val breakActive: Boolean,
+    val breakEndsAt: Long,
+    val breakTotalSec: Int,
+    val breakIsPomodoro: Boolean,
+    val historyJson: String,
+    val historyDay: String,
+    // Phase 3: progression (all local, all additive — no punishment mechanics)
+    val xp: Int,
+    val coins: Int,
+    val energy: Int,
+    val bond: Int,
+    val levelSeen: Int,
+    val tapsToday: Int,
+    val xpToday: Int,
+    val progDay: String,
+    val afterBedTicks: Int,
+    val restFiredAt: Long,
+    val restRewardedAt: Long,
+    val totalFocusSessions: Int,
+    val totalFocusMin: Int,
+    val totalBreaks: Int,
+    val totalTaps: Int,
+    val missionsDone: Int,
+    val goalDays: Int,
+    val windDownDays: Int,
+    val missionsJson: String,
+    val missionsDay: String,
+    val achievementsJson: String,
 )
 
 class Prefs(private val context: Context) {
@@ -75,9 +110,56 @@ class Prefs(private val context: Context) {
         private val KEY_SPEECH_BUBBLES = booleanPreferencesKey("speech_bubbles")
         private val KEY_HAPTIC = booleanPreferencesKey("haptic_feedback")
         private val KEY_LOCK_ARMED = booleanPreferencesKey("lock_hide_armed")
+        private val KEY_FOCUS_ACTIVE = booleanPreferencesKey("focus_active")
+        private val KEY_FOCUS_ENDS_AT = longPreferencesKey("focus_ends_at")
+        private val KEY_FOCUS_TOTAL_MIN = intPreferencesKey("focus_total_min")
+        private val KEY_FOCUS_POMODORO = booleanPreferencesKey("focus_pomodoro")
+        private val KEY_FOCUS_CYCLE = intPreferencesKey("focus_cycle")
+        private val KEY_FOCUS_STARTED_AT = longPreferencesKey("focus_started_at")
+        private val KEY_BREAK_ACTIVE = booleanPreferencesKey("break_active")
+        private val KEY_BREAK_ENDS_AT = longPreferencesKey("break_ends_at")
+        private val KEY_BREAK_TOTAL_SEC = intPreferencesKey("break_total_sec")
+        private val KEY_BREAK_POMODORO = booleanPreferencesKey("break_is_pomodoro")
+        private val KEY_HISTORY_JSON = stringPreferencesKey("history_json")
+        private val KEY_HISTORY_DAY = stringPreferencesKey("history_day")
+        // Phase 3: progression & gamification
+        private val KEY_XP = intPreferencesKey("xp")
+        private val KEY_COINS = intPreferencesKey("coins")
+        private val KEY_ENERGY = intPreferencesKey("energy")
+        private val KEY_BOND = intPreferencesKey("bond")
+        private val KEY_LEVEL_SEEN = intPreferencesKey("level_seen")
+        private val KEY_TAPS_TODAY = intPreferencesKey("taps_today")
+        private val KEY_XP_TODAY = intPreferencesKey("xp_today")
+        private val KEY_PROG_DAY = stringPreferencesKey("prog_day")
+        private val KEY_AFTER_BED_TICKS = intPreferencesKey("after_bed_ticks")
+        private val KEY_REST_FIRED_AT = longPreferencesKey("rest_fired_at")
+        private val KEY_REST_REWARDED_AT = longPreferencesKey("rest_rewarded_at")
+        private val KEY_TOTAL_FOCUS_SESSIONS = intPreferencesKey("total_focus_sessions")
+        private val KEY_TOTAL_FOCUS_MIN = intPreferencesKey("total_focus_min")
+        private val KEY_TOTAL_BREAKS = intPreferencesKey("total_breaks")
+        private val KEY_TOTAL_TAPS = intPreferencesKey("total_taps")
+        private val KEY_MISSIONS_DONE = intPreferencesKey("missions_done")
+        private val KEY_GOAL_DAYS = intPreferencesKey("goal_days")
+        private val KEY_WIND_DOWN_DAYS = intPreferencesKey("wind_down_days")
+        private val KEY_MISSIONS_JSON = stringPreferencesKey("missions_json")
+        private val KEY_MISSIONS_DAY = stringPreferencesKey("missions_day")
+        private val KEY_ACHIEVEMENTS_JSON = stringPreferencesKey("achievements_json")
 
         fun todayKey(): String =
             SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+
+        /** yyyy-MM-dd for [days] days before [dateKey] (default: yesterday). */
+        fun dayKeyMinus(dateKey: String, days: Int = 1): String {
+            val fmt = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+            val cal = java.util.Calendar.getInstance()
+            cal.time = try {
+                fmt.parse(dateKey) ?: Date()
+            } catch (e: Exception) {
+                Date()
+            }
+            cal.add(java.util.Calendar.DAY_OF_YEAR, -days)
+            return fmt.format(cal.time)
+        }
     }
 
     val companionName: Flow<String> =
@@ -128,6 +210,73 @@ class Prefs(private val context: Context) {
         context.dataStore.data.map { it[KEY_HAPTIC] ?: true }
     val lockHideArmed: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_LOCK_ARMED] ?: false }
+    val focusActive: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_FOCUS_ACTIVE] ?: false }
+    val focusEndsAt: Flow<Long> =
+        context.dataStore.data.map { it[KEY_FOCUS_ENDS_AT] ?: 0L }
+    val focusTotalMin: Flow<Int> =
+        context.dataStore.data.map { it[KEY_FOCUS_TOTAL_MIN] ?: 25 }
+    val focusPomodoro: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_FOCUS_POMODORO] ?: false }
+    val focusCycle: Flow<Int> =
+        context.dataStore.data.map { it[KEY_FOCUS_CYCLE] ?: 1 }
+    val focusStartedAt: Flow<Long> =
+        context.dataStore.data.map { it[KEY_FOCUS_STARTED_AT] ?: 0L }
+    val breakActive: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_BREAK_ACTIVE] ?: false }
+    val breakEndsAt: Flow<Long> =
+        context.dataStore.data.map { it[KEY_BREAK_ENDS_AT] ?: 0L }
+    val breakTotalSec: Flow<Int> =
+        context.dataStore.data.map { it[KEY_BREAK_TOTAL_SEC] ?: 120 }
+    val breakIsPomodoro: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_BREAK_POMODORO] ?: false }
+    val historyJson: Flow<String> =
+        context.dataStore.data.map { it[KEY_HISTORY_JSON] ?: "[]" }
+    val historyDay: Flow<String> =
+        context.dataStore.data.map { it[KEY_HISTORY_DAY] ?: "" }
+    // Phase 3: progression flows
+    val xp: Flow<Int> =
+        context.dataStore.data.map { it[KEY_XP] ?: 0 }
+    val coins: Flow<Int> =
+        context.dataStore.data.map { it[KEY_COINS] ?: 0 }
+    val energy: Flow<Int> =
+        context.dataStore.data.map { it[KEY_ENERGY] ?: Progression.ENERGY_START }
+    val bond: Flow<Int> =
+        context.dataStore.data.map { it[KEY_BOND] ?: Progression.BOND_START }
+    val levelSeen: Flow<Int> =
+        context.dataStore.data.map { it[KEY_LEVEL_SEEN] ?: 1 }
+    val tapsToday: Flow<Int> =
+        context.dataStore.data.map { it[KEY_TAPS_TODAY] ?: 0 }
+    val xpToday: Flow<Int> =
+        context.dataStore.data.map { it[KEY_XP_TODAY] ?: 0 }
+    val progDay: Flow<String> =
+        context.dataStore.data.map { it[KEY_PROG_DAY] ?: "" }
+    val afterBedTicks: Flow<Int> =
+        context.dataStore.data.map { it[KEY_AFTER_BED_TICKS] ?: 0 }
+    val restFiredAt: Flow<Long> =
+        context.dataStore.data.map { it[KEY_REST_FIRED_AT] ?: 0L }
+    val restRewardedAt: Flow<Long> =
+        context.dataStore.data.map { it[KEY_REST_REWARDED_AT] ?: 0L }
+    val totalFocusSessions: Flow<Int> =
+        context.dataStore.data.map { it[KEY_TOTAL_FOCUS_SESSIONS] ?: 0 }
+    val totalFocusMin: Flow<Int> =
+        context.dataStore.data.map { it[KEY_TOTAL_FOCUS_MIN] ?: 0 }
+    val totalBreaks: Flow<Int> =
+        context.dataStore.data.map { it[KEY_TOTAL_BREAKS] ?: 0 }
+    val totalTaps: Flow<Int> =
+        context.dataStore.data.map { it[KEY_TOTAL_TAPS] ?: 0 }
+    val missionsDone: Flow<Int> =
+        context.dataStore.data.map { it[KEY_MISSIONS_DONE] ?: 0 }
+    val goalDays: Flow<Int> =
+        context.dataStore.data.map { it[KEY_GOAL_DAYS] ?: 0 }
+    val windDownDays: Flow<Int> =
+        context.dataStore.data.map { it[KEY_WIND_DOWN_DAYS] ?: 0 }
+    val missionsJson: Flow<String> =
+        context.dataStore.data.map { it[KEY_MISSIONS_JSON] ?: "[]" }
+    val missionsDay: Flow<String> =
+        context.dataStore.data.map { it[KEY_MISSIONS_DAY] ?: "" }
+    val achievementsJson: Flow<String> =
+        context.dataStore.data.map { it[KEY_ACHIEVEMENTS_JSON] ?: "[]" }
 
     suspend fun setCompanionName(value: String) {
         context.dataStore.edit { it[KEY_NAME] = value }
@@ -217,6 +366,207 @@ class Prefs(private val context: Context) {
     suspend fun setLockHideArmed(value: Boolean) {
         context.dataStore.edit { it[KEY_LOCK_ARMED] = value }
     }
+    suspend fun setFocusActive(value: Boolean) {
+        context.dataStore.edit { it[KEY_FOCUS_ACTIVE] = value }
+    }
+
+    suspend fun setFocusEndsAt(value: Long) {
+        context.dataStore.edit { it[KEY_FOCUS_ENDS_AT] = value.coerceAtLeast(0L) }
+    }
+
+    suspend fun setFocusTotalMin(value: Int) {
+        context.dataStore.edit { it[KEY_FOCUS_TOTAL_MIN] = value.coerceIn(1, 480) }
+    }
+
+    suspend fun setFocusPomodoro(value: Boolean) {
+        context.dataStore.edit { it[KEY_FOCUS_POMODORO] = value }
+    }
+
+    suspend fun setFocusCycle(value: Int) {
+        context.dataStore.edit { it[KEY_FOCUS_CYCLE] = value.coerceAtLeast(1) }
+    }
+
+    suspend fun setFocusStartedAt(value: Long) {
+        context.dataStore.edit { it[KEY_FOCUS_STARTED_AT] = value.coerceAtLeast(0L) }
+    }
+
+    suspend fun setBreakActive(value: Boolean) {
+        context.dataStore.edit { it[KEY_BREAK_ACTIVE] = value }
+    }
+
+    suspend fun setBreakEndsAt(value: Long) {
+        context.dataStore.edit { it[KEY_BREAK_ENDS_AT] = value.coerceAtLeast(0L) }
+    }
+
+    suspend fun setBreakTotalSec(value: Int) {
+        context.dataStore.edit { it[KEY_BREAK_TOTAL_SEC] = value.coerceIn(5, 7200) }
+    }
+
+    suspend fun setBreakIsPomodoro(value: Boolean) {
+        context.dataStore.edit { it[KEY_BREAK_POMODORO] = value }
+    }
+
+    suspend fun setHistoryJson(value: String) {
+        context.dataStore.edit { it[KEY_HISTORY_JSON] = value }
+    }
+
+    suspend fun setHistoryDay(value: String) {
+        context.dataStore.edit { it[KEY_HISTORY_DAY] = value }
+    }
+
+    // ------------------------------------------------------------------
+    // Phase 3: progression. Awards are granted from several code paths
+    // (tick, tap callback), so increments are single-transaction atomic
+    // helpers rather than read-modify-write pairs.
+    // ------------------------------------------------------------------
+
+    /** Atomically adds XP/coins; returns the new totals. Never negative. */
+    suspend fun addXpCoins(xpDelta: Int, coinsDelta: Int): Pair<Int, Int> {
+        var out = 0 to 0
+        context.dataStore.edit { p ->
+            val nx = ((p[KEY_XP] ?: 0) + xpDelta).coerceAtLeast(0)
+            val nc = ((p[KEY_COINS] ?: 0) + coinsDelta).coerceAtLeast(0)
+            p[KEY_XP] = nx
+            p[KEY_COINS] = nc
+            out = nx to nc
+        }
+        return out
+    }
+
+    suspend fun addXpToday(delta: Int) {
+        context.dataStore.edit { p ->
+            p[KEY_XP_TODAY] = ((p[KEY_XP_TODAY] ?: 0) + delta).coerceAtLeast(0)
+        }
+    }
+
+    /** Increments today's tap count, clamped to the anti-farming cap. */
+    suspend fun incTapsToday(): Int {
+        var out = 0
+        context.dataStore.edit { p ->
+            out = ((p[KEY_TAPS_TODAY] ?: 0) + 1).coerceAtMost(Progression.MAX_TAPS_PER_DAY)
+            p[KEY_TAPS_TODAY] = out
+        }
+        return out
+    }
+
+    /** Adds energy, clamped to [Progression.ENERGY_FLOOR]..100. Returns new value. */
+    suspend fun addEnergy(delta: Int): Int {
+        var out = Progression.ENERGY_START
+        context.dataStore.edit { p ->
+            out = ((p[KEY_ENERGY] ?: Progression.ENERGY_START) + delta)
+                .coerceIn(Progression.ENERGY_FLOOR, 100)
+            p[KEY_ENERGY] = out
+        }
+        return out
+    }
+
+    /** Adds bond, clamped to [Progression.BOND_FLOOR]..100. Returns new value. */
+    suspend fun addBond(delta: Int): Int {
+        var out = Progression.BOND_START
+        context.dataStore.edit { p ->
+            out = ((p[KEY_BOND] ?: Progression.BOND_START) + delta)
+                .coerceIn(Progression.BOND_FLOOR, 100)
+            p[KEY_BOND] = out
+        }
+        return out
+    }
+
+    suspend fun setEnergy(value: Int) {
+        context.dataStore.edit {
+            it[KEY_ENERGY] = value.coerceIn(Progression.ENERGY_FLOOR, 100)
+        }
+    }
+
+    suspend fun setBond(value: Int) {
+        context.dataStore.edit {
+            it[KEY_BOND] = value.coerceIn(Progression.BOND_FLOOR, 100)
+        }
+    }
+
+    suspend fun setLevelSeen(value: Int) {
+        context.dataStore.edit { it[KEY_LEVEL_SEEN] = value.coerceAtLeast(1) }
+    }
+
+    suspend fun setTapsToday(value: Int) {
+        context.dataStore.edit {
+            it[KEY_TAPS_TODAY] = value.coerceIn(0, Progression.MAX_TAPS_PER_DAY)
+        }
+    }
+
+    suspend fun setXpToday(value: Int) {
+        context.dataStore.edit { it[KEY_XP_TODAY] = value.coerceAtLeast(0) }
+    }
+
+    suspend fun setProgDay(value: String) {
+        context.dataStore.edit { it[KEY_PROG_DAY] = value }
+    }
+
+    suspend fun setAfterBedTicks(value: Int) {
+        context.dataStore.edit { it[KEY_AFTER_BED_TICKS] = value.coerceAtLeast(0) }
+    }
+
+    suspend fun setRestFiredAt(value: Long) {
+        context.dataStore.edit { it[KEY_REST_FIRED_AT] = value.coerceAtLeast(0L) }
+    }
+
+    suspend fun setRestRewardedAt(value: Long) {
+        context.dataStore.edit { it[KEY_REST_REWARDED_AT] = value.coerceAtLeast(0L) }
+    }
+
+    suspend fun incTotalFocusSessions() {
+        context.dataStore.edit { p ->
+            p[KEY_TOTAL_FOCUS_SESSIONS] = (p[KEY_TOTAL_FOCUS_SESSIONS] ?: 0) + 1
+        }
+    }
+
+    suspend fun addTotalFocusMin(minutes: Int) {
+        context.dataStore.edit { p ->
+            p[KEY_TOTAL_FOCUS_MIN] =
+                ((p[KEY_TOTAL_FOCUS_MIN] ?: 0) + minutes).coerceAtLeast(0)
+        }
+    }
+
+    suspend fun incTotalBreaks() {
+        context.dataStore.edit { p ->
+            p[KEY_TOTAL_BREAKS] = (p[KEY_TOTAL_BREAKS] ?: 0) + 1
+        }
+    }
+
+    suspend fun incTotalTaps() {
+        context.dataStore.edit { p ->
+            p[KEY_TOTAL_TAPS] = (p[KEY_TOTAL_TAPS] ?: 0) + 1
+        }
+    }
+
+    suspend fun incMissionsDone() {
+        context.dataStore.edit { p ->
+            p[KEY_MISSIONS_DONE] = (p[KEY_MISSIONS_DONE] ?: 0) + 1
+        }
+    }
+
+    suspend fun incGoalDays() {
+        context.dataStore.edit { p ->
+            p[KEY_GOAL_DAYS] = (p[KEY_GOAL_DAYS] ?: 0) + 1
+        }
+    }
+
+    suspend fun incWindDownDays() {
+        context.dataStore.edit { p ->
+            p[KEY_WIND_DOWN_DAYS] = (p[KEY_WIND_DOWN_DAYS] ?: 0) + 1
+        }
+    }
+
+    suspend fun setMissionsJson(value: String) {
+        context.dataStore.edit { it[KEY_MISSIONS_JSON] = value }
+    }
+
+    suspend fun setMissionsDay(value: String) {
+        context.dataStore.edit { it[KEY_MISSIONS_DAY] = value }
+    }
+
+    suspend fun setAchievementsJson(value: String) {
+        context.dataStore.edit { it[KEY_ACHIEVEMENTS_JSON] = value }
+    }
 
     /** Records a fired reminder key, rolling the dedupe set over at day change. */
     suspend fun markFired(key: String) {
@@ -258,6 +608,39 @@ class Prefs(private val context: Context) {
             speechBubbles = data[KEY_SPEECH_BUBBLES] ?: true,
             hapticFeedback = data[KEY_HAPTIC] ?: true,
             lockHideArmed = data[KEY_LOCK_ARMED] ?: false,
+            focusActive = data[KEY_FOCUS_ACTIVE] ?: false,
+            focusEndsAt = data[KEY_FOCUS_ENDS_AT] ?: 0L,
+            focusTotalMin = data[KEY_FOCUS_TOTAL_MIN] ?: 25,
+            focusPomodoro = data[KEY_FOCUS_POMODORO] ?: false,
+            focusCycle = data[KEY_FOCUS_CYCLE] ?: 1,
+            focusStartedAt = data[KEY_FOCUS_STARTED_AT] ?: 0L,
+            breakActive = data[KEY_BREAK_ACTIVE] ?: false,
+            breakEndsAt = data[KEY_BREAK_ENDS_AT] ?: 0L,
+            breakTotalSec = data[KEY_BREAK_TOTAL_SEC] ?: 120,
+            breakIsPomodoro = data[KEY_BREAK_POMODORO] ?: false,
+            historyJson = data[KEY_HISTORY_JSON] ?: "[]",
+            historyDay = data[KEY_HISTORY_DAY] ?: "",
+            xp = data[KEY_XP] ?: 0,
+            coins = data[KEY_COINS] ?: 0,
+            energy = data[KEY_ENERGY] ?: Progression.ENERGY_START,
+            bond = data[KEY_BOND] ?: Progression.BOND_START,
+            levelSeen = data[KEY_LEVEL_SEEN] ?: 1,
+            tapsToday = data[KEY_TAPS_TODAY] ?: 0,
+            xpToday = data[KEY_XP_TODAY] ?: 0,
+            progDay = data[KEY_PROG_DAY] ?: "",
+            afterBedTicks = data[KEY_AFTER_BED_TICKS] ?: 0,
+            restFiredAt = data[KEY_REST_FIRED_AT] ?: 0L,
+            restRewardedAt = data[KEY_REST_REWARDED_AT] ?: 0L,
+            totalFocusSessions = data[KEY_TOTAL_FOCUS_SESSIONS] ?: 0,
+            totalFocusMin = data[KEY_TOTAL_FOCUS_MIN] ?: 0,
+            totalBreaks = data[KEY_TOTAL_BREAKS] ?: 0,
+            totalTaps = data[KEY_TOTAL_TAPS] ?: 0,
+            missionsDone = data[KEY_MISSIONS_DONE] ?: 0,
+            goalDays = data[KEY_GOAL_DAYS] ?: 0,
+            windDownDays = data[KEY_WIND_DOWN_DAYS] ?: 0,
+            missionsJson = data[KEY_MISSIONS_JSON] ?: "[]",
+            missionsDay = data[KEY_MISSIONS_DAY] ?: "",
+            achievementsJson = data[KEY_ACHIEVEMENTS_JSON] ?: "[]",
         )
     }
 }
