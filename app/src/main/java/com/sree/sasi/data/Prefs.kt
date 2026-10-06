@@ -45,6 +45,19 @@ data class PrefsSnapshot(
     val speechBubbles: Boolean,
     val hapticFeedback: Boolean,
     val lockHideArmed: Boolean,
+    // Phase 2: focus/break timers + history
+    val focusActive: Boolean,
+    val focusEndsAt: Long,
+    val focusTotalMin: Int,
+    val focusPomodoro: Boolean,
+    val focusCycle: Int,
+    val focusStartedAt: Long,
+    val breakActive: Boolean,
+    val breakEndsAt: Long,
+    val breakTotalSec: Int,
+    val breakIsPomodoro: Boolean,
+    val historyJson: String,
+    val historyDay: String,
 )
 
 class Prefs(private val context: Context) {
@@ -75,6 +88,18 @@ class Prefs(private val context: Context) {
         private val KEY_SPEECH_BUBBLES = booleanPreferencesKey("speech_bubbles")
         private val KEY_HAPTIC = booleanPreferencesKey("haptic_feedback")
         private val KEY_LOCK_ARMED = booleanPreferencesKey("lock_hide_armed")
+        private val KEY_FOCUS_ACTIVE = booleanPreferencesKey("focus_active")
+        private val KEY_FOCUS_ENDS_AT = longPreferencesKey("focus_ends_at")
+        private val KEY_FOCUS_TOTAL_MIN = intPreferencesKey("focus_total_min")
+        private val KEY_FOCUS_POMODORO = booleanPreferencesKey("focus_pomodoro")
+        private val KEY_FOCUS_CYCLE = intPreferencesKey("focus_cycle")
+        private val KEY_FOCUS_STARTED_AT = longPreferencesKey("focus_started_at")
+        private val KEY_BREAK_ACTIVE = booleanPreferencesKey("break_active")
+        private val KEY_BREAK_ENDS_AT = longPreferencesKey("break_ends_at")
+        private val KEY_BREAK_TOTAL_SEC = intPreferencesKey("break_total_sec")
+        private val KEY_BREAK_POMODORO = booleanPreferencesKey("break_is_pomodoro")
+        private val KEY_HISTORY_JSON = stringPreferencesKey("history_json")
+        private val KEY_HISTORY_DAY = stringPreferencesKey("history_day")
 
         fun todayKey(): String =
             SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
@@ -128,6 +153,30 @@ class Prefs(private val context: Context) {
         context.dataStore.data.map { it[KEY_HAPTIC] ?: true }
     val lockHideArmed: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_LOCK_ARMED] ?: false }
+    val focusActive: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_FOCUS_ACTIVE] ?: false }
+    val focusEndsAt: Flow<Long> =
+        context.dataStore.data.map { it[KEY_FOCUS_ENDS_AT] ?: 0L }
+    val focusTotalMin: Flow<Int> =
+        context.dataStore.data.map { it[KEY_FOCUS_TOTAL_MIN] ?: 25 }
+    val focusPomodoro: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_FOCUS_POMODORO] ?: false }
+    val focusCycle: Flow<Int> =
+        context.dataStore.data.map { it[KEY_FOCUS_CYCLE] ?: 1 }
+    val focusStartedAt: Flow<Long> =
+        context.dataStore.data.map { it[KEY_FOCUS_STARTED_AT] ?: 0L }
+    val breakActive: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_BREAK_ACTIVE] ?: false }
+    val breakEndsAt: Flow<Long> =
+        context.dataStore.data.map { it[KEY_BREAK_ENDS_AT] ?: 0L }
+    val breakTotalSec: Flow<Int> =
+        context.dataStore.data.map { it[KEY_BREAK_TOTAL_SEC] ?: 120 }
+    val breakIsPomodoro: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_BREAK_POMODORO] ?: false }
+    val historyJson: Flow<String> =
+        context.dataStore.data.map { it[KEY_HISTORY_JSON] ?: "[]" }
+    val historyDay: Flow<String> =
+        context.dataStore.data.map { it[KEY_HISTORY_DAY] ?: "" }
 
     suspend fun setCompanionName(value: String) {
         context.dataStore.edit { it[KEY_NAME] = value }
@@ -217,6 +266,53 @@ class Prefs(private val context: Context) {
     suspend fun setLockHideArmed(value: Boolean) {
         context.dataStore.edit { it[KEY_LOCK_ARMED] = value }
     }
+    suspend fun setFocusActive(value: Boolean) {
+        context.dataStore.edit { it[KEY_FOCUS_ACTIVE] = value }
+    }
+
+    suspend fun setFocusEndsAt(value: Long) {
+        context.dataStore.edit { it[KEY_FOCUS_ENDS_AT] = value.coerceAtLeast(0L) }
+    }
+
+    suspend fun setFocusTotalMin(value: Int) {
+        context.dataStore.edit { it[KEY_FOCUS_TOTAL_MIN] = value.coerceIn(1, 480) }
+    }
+
+    suspend fun setFocusPomodoro(value: Boolean) {
+        context.dataStore.edit { it[KEY_FOCUS_POMODORO] = value }
+    }
+
+    suspend fun setFocusCycle(value: Int) {
+        context.dataStore.edit { it[KEY_FOCUS_CYCLE] = value.coerceAtLeast(1) }
+    }
+
+    suspend fun setFocusStartedAt(value: Long) {
+        context.dataStore.edit { it[KEY_FOCUS_STARTED_AT] = value.coerceAtLeast(0L) }
+    }
+
+    suspend fun setBreakActive(value: Boolean) {
+        context.dataStore.edit { it[KEY_BREAK_ACTIVE] = value }
+    }
+
+    suspend fun setBreakEndsAt(value: Long) {
+        context.dataStore.edit { it[KEY_BREAK_ENDS_AT] = value.coerceAtLeast(0L) }
+    }
+
+    suspend fun setBreakTotalSec(value: Int) {
+        context.dataStore.edit { it[KEY_BREAK_TOTAL_SEC] = value.coerceIn(5, 7200) }
+    }
+
+    suspend fun setBreakIsPomodoro(value: Boolean) {
+        context.dataStore.edit { it[KEY_BREAK_POMODORO] = value }
+    }
+
+    suspend fun setHistoryJson(value: String) {
+        context.dataStore.edit { it[KEY_HISTORY_JSON] = value }
+    }
+
+    suspend fun setHistoryDay(value: String) {
+        context.dataStore.edit { it[KEY_HISTORY_DAY] = value }
+    }
 
     /** Records a fired reminder key, rolling the dedupe set over at day change. */
     suspend fun markFired(key: String) {
@@ -258,6 +354,18 @@ class Prefs(private val context: Context) {
             speechBubbles = data[KEY_SPEECH_BUBBLES] ?: true,
             hapticFeedback = data[KEY_HAPTIC] ?: true,
             lockHideArmed = data[KEY_LOCK_ARMED] ?: false,
+            focusActive = data[KEY_FOCUS_ACTIVE] ?: false,
+            focusEndsAt = data[KEY_FOCUS_ENDS_AT] ?: 0L,
+            focusTotalMin = data[KEY_FOCUS_TOTAL_MIN] ?: 25,
+            focusPomodoro = data[KEY_FOCUS_POMODORO] ?: false,
+            focusCycle = data[KEY_FOCUS_CYCLE] ?: 1,
+            focusStartedAt = data[KEY_FOCUS_STARTED_AT] ?: 0L,
+            breakActive = data[KEY_BREAK_ACTIVE] ?: false,
+            breakEndsAt = data[KEY_BREAK_ENDS_AT] ?: 0L,
+            breakTotalSec = data[KEY_BREAK_TOTAL_SEC] ?: 120,
+            breakIsPomodoro = data[KEY_BREAK_POMODORO] ?: false,
+            historyJson = data[KEY_HISTORY_JSON] ?: "[]",
+            historyDay = data[KEY_HISTORY_DAY] ?: "",
         )
     }
 }

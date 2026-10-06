@@ -29,6 +29,16 @@ wind down at bedtime, and wake up to a greeting in the morning.
   and dims slightly.
 - **Screen-time dashboard** — today's total, current session, and progress
   toward your daily goal (all computed on-device via UsageStatsManager).
+- **Focus mode (Phase 2)** — start 15/25/45/60-minute or custom focus sessions
+  (optional repeating Pomodoro: 25 min focus + 5 min break) from the Home
+  screen. While focusing, Sasi calms down, shows a 🎯 face, and gives a quiet
+  timer bubble every ~5 minutes; finishing earns a celebration. Cancelling is
+  one tap, from Home or the notification.
+- **Break mode (Phase 2)** — 20-second, 2-minute, 5-minute, or custom breaks
+  with a gentle start/end (bubble + silent notification, never an alarm).
+- **Simple stats (Phase 2)** — last 14 days of screen time, sessions, and
+  focus minutes stored on-device; Home shows a 7-day bar summary with weekly
+  totals and your best focus day.
 - **Privacy-first** — everything stays on the device. No accounts, no ads,
   no analytics, no network calls. See [docs/PRIVACY_POLICY.md](docs/PRIVACY_POLICY.md).
 
