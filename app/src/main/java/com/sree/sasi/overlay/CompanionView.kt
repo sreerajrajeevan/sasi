@@ -60,6 +60,8 @@ class CompanionView @JvmOverloads constructor(
     var onUserInteraction: (() -> Unit)? = null
     var onLongPressMenu: (() -> Unit)? = null
     var onDrop: ((Float, Float) -> Unit)? = null
+    /** Fired once per real tap reaction (single or double tap) — Phase 3 XP. */
+    var onTapReaction: (() -> Unit)? = null
 
     /** Behavior prefs, refreshed by the service on every tick. */
     var tapReactionsEnabled: Boolean = true
@@ -529,6 +531,7 @@ class CompanionView @JvmOverloads constructor(
                 }
             }
         }
+        onTapReaction?.invoke()
     }
 
     private fun doDoubleTap() {
@@ -539,6 +542,7 @@ class CompanionView @JvmOverloads constructor(
         charHolder.animate().scaleX(1.25f).scaleY(1.25f).setDuration(150).withEndAction {
             charHolder.animate().scaleX(1f).scaleY(1f).setDuration(220).start()
         }.start()
+        onTapReaction?.invoke()
     }
 
     // ------------------------------------------------------------------
@@ -734,7 +738,8 @@ class CompanionView @JvmOverloads constructor(
                 Mood.SLEEPY -> R.drawable.sasi_face_sleepy
                 Mood.WORRIED -> R.drawable.sasi_face_worried
                 Mood.RESTING -> R.drawable.sasi_face_sleepy
-                else -> R.drawable.sasi_face_normal // NORMAL, BORED, FOCUSED
+                Mood.FOCUSED -> R.drawable.sasi_face_happy
+                else -> R.drawable.sasi_face_normal // NORMAL, BORED
             },
         )
     }
