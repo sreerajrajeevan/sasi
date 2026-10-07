@@ -16,9 +16,17 @@ android {
     }
 
     // Shared debug signing key: every CI build uses the same key, so test APKs
-    // install as updates instead of forcing an uninstall first. This is a
-    // standard debug key (android/androiddebugkey) — safe to keep in the repo.
-    // If app/debug.keystore is missing, Gradle falls back to its own key.
+    // install as updates instead of forcing an uninstall first. The keystore
+    // bytes are checked in as base64 text (app/debug.keystore.b64) and decoded
+    // to app/debug.keystore at configuration time — byte-exact, no manual
+    // binary upload needed. Standard debug key (android/androiddebugkey),
+    // safe to keep in the repo.
+    val sharedKeyB64 = file("debug.keystore.b64")
+    if (sharedKeyB64.exists()) {
+        file("debug.keystore").writeBytes(
+            java.util.Base64.getMimeDecoder().decode(sharedKeyB64.readText())
+        )
+    }
     signingConfigs {
         getByName("debug") {
             val sharedKey = file("debug.keystore")
