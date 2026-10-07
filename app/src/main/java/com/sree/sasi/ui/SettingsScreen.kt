@@ -69,6 +69,7 @@ fun SettingsScreen(onBack: () -> Unit) {
     val themeIndex by app.prefs.colorTheme.collectAsState(initial = 0)
     val moveMode by app.prefs.movementMode.collectAsState(initial = 0)
     val moveFreq by app.prefs.movementFrequency.collectAsState(initial = 1)
+    val peekMode by app.prefs.peekMode.collectAsState(initial = true)
     val tapReactions by app.prefs.tapReactions.collectAsState(initial = true)
     val speechBubbles by app.prefs.speechBubbles.collectAsState(initial = true)
     val hapticFeedback by app.prefs.hapticFeedback.collectAsState(initial = true)
@@ -340,6 +341,11 @@ fun SettingsScreen(onBack: () -> Unit) {
                         }
                     }
                 }
+                SwitchRow(
+                    label = stringResource(R.string.peek_mode_label),
+                    checked = peekMode,
+                    onCheckedChange = { scope.launch { app.prefs.setPeekMode(it) } },
+                )
             }
         }
 
