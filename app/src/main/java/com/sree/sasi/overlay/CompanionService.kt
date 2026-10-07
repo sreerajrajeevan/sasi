@@ -421,7 +421,7 @@ class CompanionService : Service() {
             withContext(Dispatchers.Main) {
                 ensureOverlay()
                 view?.showForWarning()
-                if (interactive && snapshot.speechBubbles) view?.speak(reminder.bubble())
+                if (interactive && snapshot.speechBubbles) view?.speak(reminder.bubble(), allowWhilePeeking = true)
                 view?.scheduleAutoHide(60_000L)
             }
         }
@@ -499,7 +499,7 @@ class CompanionService : Service() {
                         ensureOverlay()
                         view?.showForWarning()
                         view?.flashMood(Mood.EXCITED, 2500)
-                        if (snapshot.speechBubbles) view?.speak("Focus complete! 🎉")
+                        if (snapshot.speechBubbles) view?.speak("Focus complete! 🎉", allowWhilePeeking = true)
                     }
                     Notif.showReminder(
                         this,
@@ -547,8 +547,10 @@ class CompanionService : Service() {
                     }
                 } else {
                     withContext(Dispatchers.Main) {
+                        view?.showForWarning()
                         view?.flashMood(Mood.HAPPY, 1500)
-                        if (snapshot.speechBubbles) view?.speak("Back at it 💪")
+                        if (snapshot.speechBubbles) view?.speak("Back at it 💪", allowWhilePeeking = true)
+                        view?.scheduleReturnToPeek(20_000L)
                     }
                     Notif.showQuietReminder(this, "$name: break over", "Back at it 💪")
                 }

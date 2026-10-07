@@ -4,7 +4,6 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
-import android.graphics.PorterDuff
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -59,11 +58,7 @@ class CompanionView @JvmOverloads constructor(
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
 
     private val charHolder: FrameLayout
-    private val bodyView: ImageView
-    private val faceView: ImageView
-    private val pawLeft: ImageView
-    private val pawRight: ImageView
-    private val tailView: ImageView
+    private val avatarView: ImageView
     private val bubble: TextView
 
     /** Callbacks into [CompanionService]. */
@@ -138,7 +133,7 @@ class CompanionView @JvmOverloads constructor(
     // floating around. peekMode is the setting; peeking is the live state.
     private var peekMode = true
     private var peeking = false
-    private var peekSide = 1 // 0 = left edge, 1 = right edge
+    private var peekSide = 1 // 0 = left edge, 1 = right edge, 2 = bottom edge
     private var slideAnim: ValueAnimator? = null
     private var autoHideToPeek = false
     private var moveLoopRunning = false
@@ -243,6 +238,11 @@ class CompanionView @JvmOverloads constructor(
                                     onPeekSideChanged?.invoke(1)
                                     slideOut()
                                 }
+                                posY >= maxY - edgeSnap -> {
+                                    setPeekSide(2)
+                                    onPeekSideChanged?.invoke(2)
+                                    slideOut()
+                                }
                                 else -> {
                                     scheduleResume(3000)
                                     scheduleReturnToPeek(60_000L)
@@ -293,57 +293,14 @@ class CompanionView @JvmOverloads constructor(
             isClickable = true
             isFocusable = false
         }
-        // Paws first so the body draws over them; they peek out below.
-        pawLeft = ImageView(context).apply {
-            layoutParams = LayoutParams(dp(30), dp(18)).apply {
-                gravity = Gravity.BOTTOM or Gravity.START
-                leftMargin = dp(18)
-                bottomMargin = dp(2)
-            }
-            setImageResource(R.drawable.cat_paw)
-            isClickable = false
-            isFocusable = false
-        }
-        pawRight = ImageView(context).apply {
-            layoutParams = LayoutParams(dp(30), dp(18)).apply {
-                gravity = Gravity.BOTTOM or Gravity.END
-                rightMargin = dp(18)
-                bottomMargin = dp(2)
-            }
-            setImageResource(R.drawable.cat_paw)
-            isClickable = false
-            isFocusable = false
-        }
-        // Tail behind the body, sticking out at the bottom-right; wags when idle.
-        tailView = ImageView(context).apply {
-            layoutParams = LayoutParams(dp(52), dp(52)).apply {
-                gravity = Gravity.BOTTOM or Gravity.END
-                rightMargin = -dp(14)
-                bottomMargin = dp(2)
-            }
-            setImageResource(R.drawable.cat_tail)
-            pivotX = dp(10).toFloat()
-            pivotY = dp(42).toFloat()
-            isClickable = false
-            isFocusable = false
-        }
-        bodyView = ImageView(context).apply {
+        // One realistic circular avatar — the whole cat.
+        avatarView = ImageView(context).apply {
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
-            setImageResource(R.drawable.cat_body)
+            setImageResource(R.drawable.cat_real_normal)
             isClickable = false
             isFocusable = false
         }
-        faceView = ImageView(context).apply {
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
-            setImageResource(R.drawable.cat_face_normal)
-            isClickable = false
-            isFocusable = false
-        }
-        charHolder.addView(tailView)
-        charHolder.addView(pawLeft)
-        charHolder.addView(pawRight)
-        charHolder.addView(bodyView)
-        charHolder.addView(faceView)
+        charHolder.addView(avatarView)
         charHolder.setOnTouchListener(dragTouchListener)
 
         addView(bubble)
@@ -374,7 +331,7 @@ class CompanionView @JvmOverloads constructor(
         screenW = screenWidth
         screenH = screenHeight
         this.peekMode = peekMode
-        this.peekSide = peekSide.coerceIn(0, 1)
+        this.peekSide = peekSide.coerceIn(0, 2)
         post {
             maxX = (screenW - width).toFloat().coerceAtLeast(0f)
             maxY = (screenH - height).toFloat().coerceAtLeast(0f)
@@ -410,7 +367,9 @@ class CompanionView @JvmOverloads constructor(
                 updateBounds()
                 if (peeking) {
                     // Keep the sliver glued to the edge across rotation.
-                    posX = peekXForSide(peekSide)
+                    val (px, py) = peekPosForSide(peekSide)
+                    posX = px
+                    posY = py
                     pushPosition()
                 } else {
                     if (hasTarget) {
@@ -427,9 +386,10 @@ class CompanionView @JvmOverloads constructor(
         maxX = (screenW - width).toFloat().coerceAtLeast(0f)
         maxY = (screenH - height).toFloat().coerceAtLeast(0f)
         if (peeking) {
-            // The peek sliver lives partly off-screen; only clamp vertically.
-            posX = peekXForSide(peekSide)
-            posY = posY.coerceIn(0f, maxY)
+            // The peek sliver lives partly off-screen; re-glue to the edge.
+            val (px, py) = peekPosForSide(peekSide)
+            posX = px
+            posY = py
         } else {
             posX = posX.coerceIn(0f, maxX)
             posY = posY.coerceIn(0f, maxY)
@@ -472,10 +432,7 @@ class CompanionView @JvmOverloads constructor(
             moving = false
             hasTarget = false
         }
-        bodyView.setColorFilter(color, PorterDuff.Mode.SRC_IN)
-        pawLeft.setColorFilter(color, PorterDuff.Mode.SRC_IN)
-        pawRight.setColorFilter(color, PorterDuff.Mode.SRC_IN)
-        tailView.setColorFilter(color, PorterDuff.Mode.SRC_IN)
+        // Realistic avatar needs no theme tinting.
     }
 
     /** Mood from [MoodEngine]; SLEEPY also pauses movement. */
@@ -521,7 +478,9 @@ class CompanionView @JvmOverloads constructor(
             slideAnim = null
             if (peeking) {
                 peeking = false
-                posX = visitXForSide(peekSide).coerceIn(0f, maxX)
+                val (vx, vy) = visitPosForSide(peekSide)
+                posX = vx.coerceIn(0f, maxX)
+                posY = vy.coerceIn(0f, maxY)
                 pushPosition()
             }
             setMoveLoopRunning(true)
@@ -530,29 +489,33 @@ class CompanionView @JvmOverloads constructor(
 
     /** Side change; re-glues the sliver if currently peeking. */
     fun setPeekSide(side: Int) {
-        val s = side.coerceIn(0, 1)
+        val s = side.coerceIn(0, 2)
         if (s == peekSide) return
         peekSide = s
         if (peeking) {
-            posX = peekXForSide(s)
+            val (px, py) = peekPosForSide(s)
+            posX = px
+            posY = py
             pushPosition()
         }
     }
 
     /**
      * Immediate peek positioning (boot/restore) — no animation, no flash.
-     * Only a ~40dp sliver of the cat stays visible at the chosen edge.
+     * Only a small sliver of the cat stays visible at the chosen edge,
+     * like peeking into a room.
      */
     fun setPeeking(peek: Boolean, side: Int) {
-        peekSide = side.coerceIn(0, 1)
+        peekSide = side.coerceIn(0, 2)
         slideAnim?.let { it.removeAllListeners(); it.cancel() }
         slideAnim = null
         peeking = peek
         if (peek) {
             moving = false
             hasTarget = false
-            posX = peekXForSide(peekSide)
-            posY = posY.coerceIn(0f, maxY.coerceAtLeast(0f))
+            val (px, py) = peekPosForSide(peekSide)
+            posX = px
+            posY = py
             resetPose()
             pushPosition()
             setMoveLoopRunning(false)
@@ -566,14 +529,16 @@ class CompanionView @JvmOverloads constructor(
         if (!peekMode || !peeking) return
         peeking = false
         setMoveLoopRunning(true)
-        startSlide(visitXForSide(peekSide), posY) { /* now visiting */ }
+        val (tx, ty) = visitPosForSide(peekSide)
+        startSlide(tx, ty) { /* now visiting */ }
     }
 
     /** Slide back to the edge sliver (animated). */
     fun slideOut() {
         if (!peekMode) return
         hideBubbleNow()
-        startSlide(peekXForSide(peekSide), posY) {
+        val (tx, ty) = peekPosForSide(peekSide)
+        startSlide(tx, ty) {
             peeking = true
             resetPose()
             setMoveLoopRunning(false)
@@ -607,16 +572,28 @@ class CompanionView @JvmOverloads constructor(
         }
     }
 
-    /** X so that only a sliver of the cat shows at the edge. */
-    private fun peekXForSide(side: Int): Float {
-        val sliver = dp(40).toFloat()
-        return if (side == 0) sliver - charSizePx else screenW - sliver
+    /** Window position so only a small sliver of the cat peeks into the room. */
+    private fun peekPosForSide(side: Int): Pair<Float, Float> {
+        val sliver = dp(24).toFloat()
+        val headroom = dp(64).toFloat() // bubble space above the avatar
+        return when (side) {
+            0 -> (sliver - charSizePx) to posY.coerceIn(0f, maxY.coerceAtLeast(0f))
+            2 -> posX.coerceIn(0f, maxX.coerceAtLeast(0f)) to (screenH - sliver - headroom)
+            else -> (screenW - sliver) to posY.coerceIn(0f, maxY.coerceAtLeast(0f))
+        }
     }
 
-    /** Visit spot: fully on screen, just inside the edge. */
-    private fun visitXForSide(side: Int): Float {
+    /** Visit spot: cat fully on screen, just inside the edge. */
+    private fun visitPosForSide(side: Int): Pair<Float, Float> {
         val margin = dp(16).toFloat()
-        return if (side == 0) margin else (screenW - charSizePx - margin).coerceAtLeast(margin)
+        val headroom = dp(64).toFloat()
+        return when (side) {
+            0 -> margin to posY.coerceIn(0f, maxY.coerceAtLeast(0f))
+            2 -> posX.coerceIn(0f, maxX.coerceAtLeast(0f)) to
+                (screenH - charSizePx - headroom - margin).coerceAtLeast(0f)
+            else -> (screenW - charSizePx - margin).coerceAtLeast(margin) to
+                posY.coerceIn(0f, maxY.coerceAtLeast(0f))
+        }
     }
 
     /** Like [scheduleAutoHide], but returns to the peek sliver instead. */
@@ -637,7 +614,13 @@ class CompanionView @JvmOverloads constructor(
         return true
     }
 
-    fun speak(text: String) {
+    /**
+     * Shows a speech bubble. While peeking, only bubbles tied to a slide-out
+     * (tap visits, real warnings) are shown — idle chatter stays silent so
+     * the cat truly rests at the edge.
+     */
+    fun speak(text: String, allowWhilePeeking: Boolean = false) {
+        if (peeking && !allowWhilePeeking) return
         bubble.text = text
         bubble.translationX = 0f
         bubble.visibility = VISIBLE
@@ -790,8 +773,7 @@ class CompanionView @JvmOverloads constructor(
             }
             1 -> {
                 // Blink right now.
-                faceView.setImageResource(R.drawable.cat_face_blink)
-                handler.postDelayed({ refreshFace() }, 140)
+                blinkNow()
             }
             2 -> {
                 // Wave: rotation wiggle.
@@ -934,17 +916,12 @@ class CompanionView @JvmOverloads constructor(
                 stateTimer = idlePause()
                 resetPose()
             } else {
-                // Smooth glide; paws alternate lifts, body sways gently.
+                // Smooth glide; the avatar bobs gently.
                 posX += dx / dist * stepDist
                 posY += dy / dist * stepDist
-                phase += dt * 2f * PI.toFloat() * 2.4f // ~2.4 steps per second
-                val lift = dp(6).toFloat()
-                pawLeft.translationY = -lift * max(0f, sin(phase))
-                pawRight.translationY = -lift * max(0f, sin(phase + PI.toFloat()))
-                val sway = sin(phase * 2f) * dp(2)
-                bodyView.translationY = sway
-                faceView.translationY = sway
-                faceView.translationX = 0f
+                phase += dt * 2f * PI.toFloat() * 2.4f
+                avatarView.translationY = sin(phase * 2f) * dp(2)
+                avatarView.translationX = 0f
                 charHolder.scaleX = 1f
                 charHolder.scaleY = 1f
             }
@@ -954,32 +931,29 @@ class CompanionView @JvmOverloads constructor(
                 // Peek presence replaces waypoint wandering entirely; idle
                 // life (breathing, tail) only runs while visiting.
                 stateTimer = idlePause()
-                resetPaws()
+                resetAvatar()
                 idleLife(now)
             } else {
                 stateTimer -= dt
                 if (stateTimer <= 0f) pickWaypoint()
-                resetPaws()
+                resetAvatar()
                 idleLife(now)
             }
         }
     }
 
-    private fun resetPaws() {
-        pawLeft.translationY = 0f
-        pawRight.translationY = 0f
-        bodyView.translationY = 0f
-        faceView.translationY = 0f
+    private fun resetAvatar() {
+        avatarView.translationY = 0f
+        avatarView.translationX = 0f
+        avatarView.scaleY = 1f
     }
 
     private fun resetPose() {
-        resetPaws()
-        tailView.rotation = 0f
+        resetAvatar()
         charHolder.translationY = 0f
         charHolder.rotation = 0f
         charHolder.scaleX = 1f
         charHolder.scaleY = 1f
-        faceView.translationX = 0f
     }
 
     /** Subtle idle behaviors: breathing, looking around, occasional yawns. */
@@ -995,8 +969,8 @@ class CompanionView @JvmOverloads constructor(
         if (nextLookAt == 0L) nextLookAt = now + 40_000L + random.nextInt(60_000)
         if (now >= nextLookAt) {
             nextLookAt = now + 40_000L + random.nextInt(60_000)
-            faceView.translationX = (if (random.nextBoolean()) 1f else -1f) * dp(5)
-            handler.postDelayed({ faceView.translationX = 0f }, 1200)
+            avatarView.translationX = (if (random.nextBoolean()) 1f else -1f) * dp(5)
+            handler.postDelayed({ avatarView.translationX = 0f }, 1200)
         }
         // Rare yawn when tired or sleepy: first one no sooner than 3 min in.
         val tired = baseMood == Mood.TIRED || baseMood == Mood.SLEEPY
@@ -1009,35 +983,32 @@ class CompanionView @JvmOverloads constructor(
             flashMood(Mood.TIRED, 2000)
             if (speechBubblesEnabled) speak("yawn\u2026")
         }
-        // Tail wag: slow and content, only when fully on screen.
-        if (!peeking && !hiddenByUser && visibility == VISIBLE) {
-            tailView.rotation = sin(now / 700.0).toFloat() * 12f
-        }
+    }
+
+    /** A blink is a quick vertical squint of the avatar. */
+    private fun blinkNow() {
+        avatarView.animate().cancel()
+        avatarView.animate().scaleY(0.12f).setDuration(90).withEndAction {
+            avatarView.animate().scaleY(1f).setDuration(120).start()
+        }.start()
     }
 
     private fun scheduleBlink() {
         handler.postDelayed({
             if (!sleeping && !dragging && !hiddenByUser && moodOverride == null) {
-                faceView.setImageResource(R.drawable.cat_face_blink)
-                handler.postDelayed({ refreshFace() }, 140)
+                blinkNow()
             }
             scheduleBlink()
         }, (2000 + random.nextInt(4000)).toLong())
     }
 
     private fun refreshFace() {
-        faceView.setImageResource(
+        avatarView.setImageResource(
             when (moodOverride ?: baseMood) {
-                Mood.HAPPY -> R.drawable.cat_face_happy
-                Mood.EXCITED -> R.drawable.cat_face_excited
-                Mood.PROUD -> R.drawable.cat_face_excited
-                Mood.PLAYFUL -> R.drawable.cat_face_happy
-                Mood.TIRED -> R.drawable.cat_face_tired
-                Mood.SLEEPY -> R.drawable.cat_face_sleepy
-                Mood.WORRIED -> R.drawable.cat_face_worried
-                Mood.RESTING -> R.drawable.cat_face_sleepy
-                Mood.FOCUSED -> R.drawable.cat_face_happy
-                else -> R.drawable.cat_face_normal // NORMAL, BORED
+                Mood.HAPPY, Mood.EXCITED, Mood.PROUD, Mood.PLAYFUL, Mood.FOCUSED ->
+                    R.drawable.cat_real_happy
+                Mood.TIRED, Mood.SLEEPY, Mood.RESTING -> R.drawable.cat_real_sleepy
+                else -> R.drawable.cat_real_normal // NORMAL, BORED, WORRIED
             },
         )
     }
