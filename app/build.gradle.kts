@@ -15,6 +15,22 @@ android {
         versionName = "1.0.0"
     }
 
+    // Shared debug signing key: every CI build uses the same key, so test APKs
+    // install as updates instead of forcing an uninstall first. This is a
+    // standard debug key (android/androiddebugkey) — safe to keep in the repo.
+    // If app/debug.keystore is missing, Gradle falls back to its own key.
+    signingConfigs {
+        getByName("debug") {
+            val sharedKey = file("debug.keystore")
+            if (sharedKey.exists()) {
+                storeFile = sharedKey
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
