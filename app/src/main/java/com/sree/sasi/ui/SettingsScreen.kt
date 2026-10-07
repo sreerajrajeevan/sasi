@@ -70,6 +70,7 @@ fun SettingsScreen(onBack: () -> Unit) {
     val moveMode by app.prefs.movementMode.collectAsState(initial = 0)
     val moveFreq by app.prefs.movementFrequency.collectAsState(initial = 1)
     val peekMode by app.prefs.peekMode.collectAsState(initial = true)
+    val peekSide by app.prefs.peekSide.collectAsState(initial = 1)
     val tapReactions by app.prefs.tapReactions.collectAsState(initial = true)
     val speechBubbles by app.prefs.speechBubbles.collectAsState(initial = true)
     val hapticFeedback by app.prefs.hapticFeedback.collectAsState(initial = true)
@@ -346,6 +347,30 @@ fun SettingsScreen(onBack: () -> Unit) {
                     checked = peekMode,
                     onCheckedChange = { scope.launch { app.prefs.setPeekMode(it) } },
                 )
+                if (peekMode) {
+                    Text(
+                        text = stringResource(R.string.peek_side_label),
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        listOf(
+                            stringResource(R.string.peek_side_left),
+                            stringResource(R.string.peek_side_right),
+                            stringResource(R.string.peek_side_bottom),
+                        ).forEachIndexed { index, label ->
+                            SegmentedButton(
+                                selected = peekSide == index,
+                                onClick = { scope.launch { app.prefs.setPeekSide(index) } },
+                                shape = SegmentedButtonDefaults.itemShape(
+                                    index = index,
+                                    count = 3,
+                                ),
+                            ) {
+                                Text(label)
+                            }
+                        }
+                    }
+                }
             }
         }
 

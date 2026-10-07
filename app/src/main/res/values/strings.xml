@@ -128,4 +128,8 @@
     <string name="achievements_empty">Keep up the healthy habits to earn trophies!</string>
     <string name="peek_mode_label">Peek from screen edge</string>
     <string name="peek_mode_desc">Sasi lives as a sliver at the screen edge; tap to invite it out</string>
+    <string name="peek_side_label">Peek from</string>
+    <string name="peek_side_left">Left</string>
+    <string name="peek_side_right">Right</string>
+    <string name="peek_side_bottom">Bottom</string>
 </resources>
