@@ -1,3 +1,5 @@
+import java.util.Base64
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -24,7 +26,7 @@ android {
     val sharedKeyB64 = file("debug.keystore.b64")
     if (sharedKeyB64.exists()) {
         file("debug.keystore").writeBytes(
-            java.util.Base64.getMimeDecoder().decode(sharedKeyB64.readText())
+            Base64.getMimeDecoder().decode(sharedKeyB64.readText())
         )
     }
     signingConfigs {
