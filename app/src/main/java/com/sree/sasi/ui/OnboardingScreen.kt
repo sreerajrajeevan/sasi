@@ -196,7 +196,7 @@ fun OnboardingScreen() {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    SasiFace(size = 120.dp, imageRes = R.drawable.cat_real_happy)
+                    SasiFace(size = 120.dp, faceRes = R.drawable.cat_face_happy)
                     Text(
                         text = stringResource(R.string.onboarding_name_title),
                         style = MaterialTheme.typography.headlineSmall,

@@ -6,12 +6,13 @@ wind down at bedtime, and wake up to a greeting in the morning.
 
 ## Features
 
-- **Floating overlay** — Sasi is a realistic kitten (AI-generated, circular
-  avatar) with happy/normal/sleepy looks for every mood.
+- **Floating overlay** — Sasi is a tiny vector cat (round head, triangle ears, wagging
+  tail, little paws) with whiskered faces for every mood.
 - **Edge peek** — instead of floating around all the time, Sasi lives as a
-  small sliver at the screen edge (left, right, or bottom — like peeking into
-  a room). It only comes fully on screen when you tap it or when a real
-  reminder fires; idle chatter stays silent while it peeks. Tap the sliver
+  small sliver at the screen edge (left, right, or bottom — one ear, one eye,
+  whiskers peeking out, like peeking into a room). It only comes fully on
+  screen when you tap it or when a real reminder fires; idle chatter stays
+  silent while it peeks. Tap the sliver
   and it slides out for a visit, then slides back after ~30 seconds.
   Drag it near an edge to dock it on that side. Warnings slide it out to
   deliver their message, then it returns to the edge. Toggle "Peek from screen
