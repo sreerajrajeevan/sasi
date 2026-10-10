@@ -341,7 +341,7 @@ class CompanionView @JvmOverloads constructor(
         w.x = (screenW - cs - edgeMarginPx().toInt()).coerceAtLeast(0)
         w.y = ((screenH - cs - hr) / 2).toInt().coerceAtLeast(0)
         w.width = cs
-        w.height = cs + hr
+        w.height = (cs + hr).toInt()
         try {
             wm?.updateViewLayout(this, w)
         } catch (e: Exception) {
