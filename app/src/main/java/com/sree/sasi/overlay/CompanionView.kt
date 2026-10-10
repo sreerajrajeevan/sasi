@@ -139,6 +139,7 @@ class CompanionView @JvmOverloads constructor(
     private var peekMode = true
     private var peeking = false
     private var peekSide = 1 // 0 = left edge, 1 = right edge, 2 = bottom edge
+    private var geomF = 0f // window geometry fraction: 0 = peeked (sliver), 1 = visiting (full)
     private var slideAnim: ValueAnimator? = null
     private var autoHideToPeek = false
     private var moveLoopRunning = false
@@ -197,6 +198,16 @@ class CompanionView @JvmOverloads constructor(
                         peeking = false
                         slideAnim?.let { it.removeAllListeners(); it.cancel() }
                         slideAnim = null
+                        geomF = 1f
+                        val vr = visitGeom()
+                        posX = vr.x
+                        posY = vr.y
+                        // Re-anchor the drag so it continues smoothly from here.
+                        downPosX = posX
+                        downPosY = posY
+                        downRawX = event.rawX
+                        downRawY = event.rawY
+                        pushPosition()
                         setMoveLoopRunning(true)
                     }
                     onUserInteraction?.invoke()
@@ -358,11 +369,8 @@ class CompanionView @JvmOverloads constructor(
         scheduleBlink()
     }
 
-    /** Reserves headroom above the character for the speech bubble. */
-    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
-        setMeasuredDimension(measuredWidth, measuredHeight + dp(64))
-    }
+    // Window size is set explicitly via LayoutParams (peek sliver vs full visit),
+    // so no headroom hack is needed here; the bubble space is part of the visit geometry.
 
     fun bindWindow(
         windowManager: WindowManager,
@@ -381,16 +389,17 @@ class CompanionView @JvmOverloads constructor(
         this.peekMode = peekMode
         this.peekSide = peekSide.coerceIn(0, 2)
         post {
-            maxX = (screenW - width).toFloat().coerceAtLeast(0f)
-            maxY = (screenH - height).toFloat().coerceAtLeast(0f)
+            maxX = (screenW - charSizePx).toFloat().coerceAtLeast(0f)
+            maxY = (screenH - charSizePx - headroomPx()).toFloat().coerceAtLeast(0f)
+            posX = startX.coerceIn(0f, maxX)
+            posY = startY.coerceIn(0f, maxY)
             if (this.peekMode && !hiddenByUser) {
                 // Peek presence: only a sliver at the edge, never a flash of
                 // the full cat on start.
-                posY = startY.coerceIn(0f, maxY)
+                geomF = 0f
                 setPeeking(true, this.peekSide)
             } else if (!this.peekMode) {
-                posX = startX.coerceIn(0f, maxX)
-                posY = startY.coerceIn(0f, maxY)
+                geomF = 1f
                 pushPosition()
             }
             // peekMode && hiddenByUser: stay GONE, positioned on next show.
@@ -413,32 +422,21 @@ class CompanionView @JvmOverloads constructor(
             screenH = h
             post {
                 updateBounds()
-                if (peeking) {
-                    // Keep the sliver glued to the edge across rotation.
-                    val (px, py) = peekPosForSide(peekSide)
-                    posX = px
-                    posY = py
-                    pushPosition()
-                } else {
-                    if (hasTarget) {
-                        targetX = targetX.coerceIn(0f, maxX)
-                        targetY = targetY.coerceIn(0f, maxY)
-                    }
-                    pushPosition()
+                if (!peeking && hasTarget) {
+                    targetX = targetX.coerceIn(0f, maxX)
+                    targetY = targetY.coerceIn(0f, maxY)
                 }
+                // Re-glues the sliver (or visit) to the edge across rotation.
+                pushPosition()
             }
         }
     }
 
     private fun updateBounds() {
-        maxX = (screenW - width).toFloat().coerceAtLeast(0f)
-        maxY = (screenH - height).toFloat().coerceAtLeast(0f)
-        if (peeking) {
-            // The peek sliver lives partly off-screen; re-glue to the edge.
-            val (px, py) = peekPosForSide(peekSide)
-            posX = px
-            posY = py
-        } else {
+        // Bounds for the full-size visit window; the sliver is always inside.
+        maxX = (screenW - charSizePx).toFloat().coerceAtLeast(0f)
+        maxY = (screenH - charSizePx - headroomPx()).toFloat().coerceAtLeast(0f)
+        if (!peeking) {
             posX = posX.coerceIn(0f, maxX)
             posY = posY.coerceIn(0f, maxY)
         }
@@ -529,9 +527,10 @@ class CompanionView @JvmOverloads constructor(
             slideAnim = null
             if (peeking) {
                 peeking = false
-                val (vx, vy) = visitPosForSide(peekSide)
-                posX = vx.coerceIn(0f, maxX)
-                posY = vy.coerceIn(0f, maxY)
+                geomF = 1f
+                val vr = visitGeom()
+                posX = vr.x.coerceIn(0f, maxX)
+                posY = vr.y.coerceIn(0f, maxY)
                 pushPosition()
             }
             setMoveLoopRunning(true)
@@ -543,12 +542,7 @@ class CompanionView @JvmOverloads constructor(
         val s = side.coerceIn(0, 2)
         if (s == peekSide) return
         peekSide = s
-        if (peeking) {
-            val (px, py) = peekPosForSide(s)
-            posX = px
-            posY = py
-            pushPosition()
-        }
+        pushPosition()
     }
 
     /**
@@ -560,18 +554,16 @@ class CompanionView @JvmOverloads constructor(
         slideAnim?.let { it.removeAllListeners(); it.cancel() }
         slideAnim = null
         peeking = peek
+        geomF = if (peek) 0f else 1f
         if (peek) {
             moving = false
             hasTarget = false
-            val (px, py) = peekPosForSide(peekSide)
-            posX = px
-            posY = py
             resetPose()
-            pushPosition()
             setMoveLoopRunning(false)
         } else {
             setMoveLoopRunning(true)
         }
+        pushPosition()
     }
 
     /** Slide the cat fully on screen for a visit (from peek). */
@@ -579,42 +571,46 @@ class CompanionView @JvmOverloads constructor(
         if (!peekMode || !peeking) return
         peeking = false
         setMoveLoopRunning(true)
-        val (tx, ty) = visitPosForSide(peekSide)
-        startSlide(tx, ty) { /* now visiting */ }
+        startSlide(toVisit = true)
     }
 
     /** Slide back to the edge sliver (animated). */
     fun slideOut() {
         if (!peekMode) return
         hideBubbleNow()
-        val (tx, ty) = peekPosForSide(peekSide)
-        startSlide(tx, ty) {
-            peeking = true
-            resetPose()
-            setMoveLoopRunning(false)
-        }
+        peeking = true
+        startSlide(toVisit = false)
     }
 
-    private fun startSlide(targetX: Float, targetY: Float, onEnd: (() -> Unit)?) {
+    private fun startSlide(toVisit: Boolean) {
         slideAnim?.let { it.removeAllListeners(); it.cancel() }
-        val fromX = posX
-        val fromY = posY
+        val fromF = geomF
+        val toF = if (toVisit) 1f else 0f
         moving = false
         hasTarget = false
-        slideAnim = ValueAnimator.ofFloat(0f, 1f).apply {
+        if (fromF == toF) {
+            if (!toVisit) {
+                resetPose()
+                setMoveLoopRunning(false)
+            }
+            pushPosition()
+            return
+        }
+        slideAnim = ValueAnimator.ofFloat(fromF, toF).apply {
             duration = 350
             interpolator = DecelerateInterpolator()
             addUpdateListener { anim ->
-                val t = anim.animatedValue as Float
-                posX = fromX + (targetX - fromX) * t
-                posY = fromY + (targetY - fromY) * t
-                pushPosition()
+                applyGeom(anim.animatedValue as Float)
             }
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
                     if (slideAnim === animation) {
                         slideAnim = null
-                        onEnd?.invoke()
+                        if (!toVisit) {
+                            resetPose()
+                            setMoveLoopRunning(false)
+                        }
+                        pushPosition()
                     }
                 }
             })
@@ -622,27 +618,73 @@ class CompanionView @JvmOverloads constructor(
         }
     }
 
-    /** Window position so only a small sliver of the cat peeks into the room. */
-    private fun peekPosForSide(side: Int): Pair<Float, Float> {
-        val sliver = dp(40).toFloat()
-        val headroom = dp(64).toFloat() // bubble space above the cat
-        return when (side) {
-            0 -> (sliver - charSizePx) to posY.coerceIn(0f, maxY.coerceAtLeast(0f))
-            2 -> posX.coerceIn(0f, maxX.coerceAtLeast(0f)) to (screenH - sliver - headroom)
-            else -> (screenW - sliver) to posY.coerceIn(0f, maxY.coerceAtLeast(0f))
+    // ---- Clamp-proof peek geometry ----
+    // Some devices clamp overlay windows fully on-screen, so a peek sliver
+    // cannot be achieved by positioning the window off-screen. Instead the
+    // window itself is sized to the sliver (the cat clips at the window
+    // bounds) and the window never leaves the screen.
+    private fun sliverPx() = dp(40).toFloat()
+    private fun edgeMarginPx() = dp(16).toFloat()
+    private fun headroomPx() = dp(64).toFloat()
+
+    private data class WinGeom(val x: Float, val y: Float, val w: Int, val h: Int)
+
+    /** Window geometry for the peeked state: sliver at the edge, always on-screen. */
+    private fun peekGeom(): WinGeom {
+        val s = sliverPx()
+        val cs = charSizePx.toFloat()
+        return when (peekSide) {
+            0 -> WinGeom(0f, posY.coerceIn(0f, maxY.coerceAtLeast(0f)), s.toInt(), cs.toInt())
+            2 -> WinGeom(
+                posX.coerceIn(0f, maxX.coerceAtLeast(0f)),
+                screenH - s, cs.toInt(), s.toInt()
+            )
+            else -> WinGeom(
+                screenW - s,
+                posY.coerceIn(0f, maxY.coerceAtLeast(0f)),
+                s.toInt(), cs.toInt()
+            )
         }
     }
 
-    /** Visit spot: cat fully on screen, just inside the edge. */
-    private fun visitPosForSide(side: Int): Pair<Float, Float> {
-        val margin = dp(16).toFloat()
-        val headroom = dp(64).toFloat()
-        return when (side) {
-            0 -> margin to posY.coerceIn(0f, maxY.coerceAtLeast(0f))
-            2 -> posX.coerceIn(0f, maxX.coerceAtLeast(0f)) to
-                (screenH - charSizePx - headroom - margin).coerceAtLeast(0f)
-            else -> (screenW - charSizePx - margin).coerceAtLeast(margin) to
-                posY.coerceIn(0f, maxY.coerceAtLeast(0f))
+    /** Window geometry for the visiting state: full cat, on-screen. */
+    private fun visitGeom(): WinGeom {
+        val cs = charSizePx.toFloat()
+        val m = edgeMarginPx()
+        val hr = headroomPx()
+        return when (peekSide) {
+            0 -> WinGeom(
+                m,
+                (posY.coerceIn(0f, maxY.coerceAtLeast(0f)) - hr).coerceAtLeast(0f),
+                cs.toInt(), (cs + hr).toInt()
+            )
+            2 -> WinGeom(
+                posX.coerceIn(0f, maxX.coerceAtLeast(0f)),
+                (screenH - cs - hr - m).coerceAtLeast(0f),
+                cs.toInt(), (cs + hr).toInt()
+            )
+            else -> WinGeom(
+                (screenW - cs - m).coerceAtLeast(0f),
+                (posY.coerceIn(0f, maxY.coerceAtLeast(0f)) - hr).coerceAtLeast(0f),
+                cs.toInt(), (cs + hr).toInt()
+            )
+        }
+    }
+
+    /** Applies the interpolated window geometry for fraction f (0=peek, 1=visit). */
+    private fun applyGeom(f: Float) {
+        geomF = f
+        val params = winParams ?: return
+        val pr = peekGeom()
+        val vr = visitGeom()
+        params.x = (pr.x + (vr.x - pr.x) * f).toInt()
+        params.y = (pr.y + (vr.y - pr.y) * f).toInt()
+        params.width = (pr.w + (vr.w - pr.w) * f).toInt()
+        params.height = (pr.h + (vr.h - pr.h) * f).toInt()
+        try {
+            wm?.updateViewLayout(this, params)
+        } catch (e: Exception) {
+            // Window already removed.
         }
     }
 
@@ -931,14 +973,7 @@ class CompanionView @JvmOverloads constructor(
     }
 
     private fun pushPosition() {
-        val params = winParams ?: return
-        params.x = posX.toInt()
-        params.y = posY.toInt()
-        try {
-            wm?.updateViewLayout(this, params)
-        } catch (e: Exception) {
-            // Window already removed.
-        }
+        applyGeom(if (peeking) 0f else 1f)
     }
 
     private fun step(dt: Float) {
