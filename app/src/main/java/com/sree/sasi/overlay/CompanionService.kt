@@ -365,6 +365,7 @@ class CompanionService : Service() {
                     v.tapReactionsEnabled = snapshot.tapReactions
                     v.speechBubblesEnabled = snapshot.speechBubbles
                     v.hapticEnabled = snapshot.hapticFeedback
+                    v.character = snapshot.character
                     v.refreshScreenSize()
                 }
             }

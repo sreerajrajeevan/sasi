@@ -15,6 +15,7 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
+import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
@@ -147,6 +148,16 @@ class CompanionView @JvmOverloads constructor(
     private var walkOutRunnable: Runnable? = null
     private var walkPhase = 0f
     private var walkAnimRunning = false
+    /** Active character: 0 = Spider-Man (drops from above), 1 = Cat (runs in). */
+    var character: Int = 0
+    // Spider-Man views: a web line + the hero, inside a swing holder.
+    private lateinit var spideyContainer: FrameLayout
+    private lateinit var spideySwing: FrameLayout
+    private lateinit var webLine: View
+    private lateinit var spideyView: ImageView
+    private lateinit var spideyBubble: TextView
+    private var spideyDropAnim: ValueAnimator? = null
+    private var spideySwingAnim: ValueAnimator? = null
     private var peekSide = 1 // 0 = left edge, 1 = right edge, 2 = bottom edge
     private var geomF = 0f // window geometry fraction: 0 = peeked (sliver), 1 = visiting (full)
     private var slideAnim: ValueAnimator? = null
@@ -161,29 +172,30 @@ class CompanionView @JvmOverloads constructor(
     }
 
     /** Starts/stops the 50ms step loop. Stopped while peeking (battery). */
-    /** Paw-stepping walk cycle used while the cat walks in/out for a reminder. */
+    /** Fast paw-cycle run used while the cat sprints in/out for a reminder. */
     private val walkLoop = object : Runnable {
         override fun run() {
             if (!walkAnimRunning) return
-            walkPhase += 0.22f
-            val lift = dp(7).toFloat()
+            walkPhase += 0.38f // fast sprint cadence
+            val lift = dp(10).toFloat()
             pawLeft.translationY = -lift * max(0f, sin(walkPhase))
             pawRight.translationY = -lift * max(0f, sin(walkPhase + PI.toFloat()))
-            val sway = sin(walkPhase * 2f) * dp(2)
-            bodyView.translationY = sway
-            faceView.translationY = sway
-            tailView.rotation = sin(walkPhase).toFloat() * 8f
-            handler.postDelayed(this, 50)
+            // Bouncy gallop: body hops with each stride.
+            val hop = -abs(sin(walkPhase)) * dp(6)
+            bodyView.translationY = hop
+            faceView.translationY = hop
+            tailView.rotation = sin(walkPhase).toFloat() * 18f // streams behind
+            handler.postDelayed(this, 40)
         }
     }
 
-    private fun startWalkAnimation() {
+    private fun startRunAnimation() {
         if (walkAnimRunning) return
         walkAnimRunning = true
         handler.post(walkLoop)
     }
 
-    private fun stopWalkAnimation() {
+    private fun stopRunAnimation() {
         walkAnimRunning = false
         handler.removeCallbacks(walkLoop)
         resetPaws()
@@ -193,46 +205,136 @@ class CompanionView @JvmOverloads constructor(
     }
 
     /**
-     * Walks the cat in from the right screen edge to deliver a reminder.
-     * This is the ONLY way the cat appears on screen — it stays completely
-     * hidden otherwise.
+     * Delivers a reminder via the active character. This is the ONLY way a
+     * character appears on screen — everything stays completely hidden
+     * otherwise.
+     * - Spider-Man (0): drops down from above on a web line, sways, tells
+     *   the reminder, then retracts back up.
+     * - Cat (1): runs in from the right edge, tells the reminder, then
+     *   dashes back out.
      */
     fun walkInForReminder(text: String, visitMillis: Long = 10_000L) {
         walkOutRunnable?.let { handler.removeCallbacks(it) }
         walkOutRunnable = null
+        if (character == 0) {
+            spideyDropForReminder(text, visitMillis)
+        } else {
+            catRunInForReminder(text, visitMillis)
+        }
+        onUserInteraction?.invoke()
+    }
 
-        positionForReminder()
+    /** Cat: runs in from the right edge with a bouncy sprint. */
+    private fun catRunInForReminder(text: String, visitMillis: Long) {
+        positionForCatReminder()
+        spideyContainer.visibility = GONE
+        charHolder.visibility = VISIBLE
         if (visibility != VISIBLE) {
             visibility = VISIBLE
             alpha = 1f
         }
 
-        // Start shifted right (clipped by the window = invisible), walk left.
+        // Start shifted right (clipped by the window = invisible), sprint left.
         val cs = charSizePx.toFloat()
         charHolder.translationX = cs
+        charHolder.rotation = -10f // lean into the run
         showingReminder = true
         setMoveLoopRunning(true)
-        startWalkAnimation()
+        startRunAnimation()
 
         charHolder.animate().cancel()
         charHolder.animate()
             .translationX(0f)
-            .setDuration(1200)
+            .setDuration(900)
             .setInterpolator(DecelerateInterpolator())
             .withEndAction {
-                stopWalkAnimation()
+                stopRunAnimation()
+                charHolder.rotation = 0f
                 if (text.isNotEmpty() && speechBubblesEnabled) {
                     speak(text)
                 }
                 scheduleWalkOut(visitMillis)
             }
             .start()
+    }
 
-        onUserInteraction?.invoke()
+    /** Spider-Man: drops from above on a web line, sways gently. */
+    private fun spideyDropForReminder(text: String, visitMillis: Long) {
+        positionForSpideyReminder()
+        charHolder.visibility = GONE
+        spideyContainer.visibility = VISIBLE
+        if (visibility != VISIBLE) {
+            visibility = VISIBLE
+            alpha = 1f
+        }
+        showingReminder = true
+        setMoveLoopRunning(true)
+
+        // Reset: web fully retracted, Spidey above the window (invisible).
+        spideyDropAnim?.cancel()
+        spideySwingAnim?.cancel()
+        val dropPx = dp(240).toFloat()
+        webLine.scaleY = 0f
+        webLine.pivotY = 0f
+        spideyView.translationY = -dropPx
+        spideySwing.rotation = 0f
+        spideyBubble.visibility = GONE
+        spideyBubble.alpha = 0f
+
+        // Drop: web extends as Spidey descends (single synced animator).
+        spideyDropAnim = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 1100
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { anim ->
+                val f = anim.animatedValue as Float
+                webLine.scaleY = f
+                spideyView.translationY = -dropPx + dropPx * f
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    startSpideySway()
+                    if (text.isNotEmpty() && speechBubblesEnabled) {
+                        spideySpeak(text)
+                    }
+                    scheduleWalkOut(visitMillis)
+                }
+            })
+            start()
+        }
+    }
+
+    /** Gentle side-to-side sway while hanging. */
+    private fun startSpideySway() {
+        spideySwingAnim?.cancel()
+        spideySwing.pivotX = (spideySwing.width / 2).toFloat()
+        spideySwing.pivotY = 0f
+        spideySwingAnim = ValueAnimator.ofFloat(-7f, 7f).apply {
+            duration = 1400
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.REVERSE
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { anim ->
+                spideySwing.rotation = anim.animatedValue as Float
+            }
+            start()
+        }
+    }
+
+    private fun spideySpeak(text: String) {
+        spideyBubble.text = text
+        spideyBubble.visibility = VISIBLE
+        spideyBubble.animate().cancel()
+        spideyBubble.animate().alpha(1f).setDuration(200).start()
+    }
+
+    private fun spideyHideBubbleNow() {
+        spideyBubble.animate().cancel()
+        spideyBubble.visibility = GONE
+        spideyBubble.alpha = 0f
     }
 
     /** Window at the right edge, vertically centered, full cat size. */
-    private fun positionForReminder() {
+    private fun positionForCatReminder() {
         val w = winParams ?: return
         val cs = charSizePx
         val hr = headroomPx()
@@ -240,6 +342,21 @@ class CompanionView @JvmOverloads constructor(
         w.y = (screenH / 2 - (cs + hr) / 2).coerceAtLeast(0)
         w.width = cs
         w.height = cs + hr
+        try {
+            wm?.updateViewLayout(this, w)
+        } catch (e: Exception) {
+        }
+    }
+
+    /** Tall window at the top-center for the web drop. */
+    private fun positionForSpideyReminder() {
+        val w = winParams ?: return
+        val ww = dp(220)
+        val wh = dp(240 + 96 + 90) // web + hero + bubble
+        w.x = (screenW - ww) / 2
+        w.y = 0
+        w.width = ww
+        w.height = wh
         try {
             wm?.updateViewLayout(this, w)
         } catch (e: Exception) {
@@ -254,8 +371,8 @@ class CompanionView @JvmOverloads constructor(
     }
 
     /**
-     * Walks the cat back out to the right and hides completely.
-     * Called after the reminder timeout or when the user taps the cat.
+     * Sends the character back out and hides completely.
+     * Called after the reminder timeout or when the user taps.
      */
     fun walkOutAndHide() {
         walkOutRunnable?.let { handler.removeCallbacks(it) }
@@ -264,25 +381,65 @@ class CompanionView @JvmOverloads constructor(
             hideCompletely()
             return
         }
+        // Dismiss whichever character is actually on screen (the setting
+        // may have changed mid-reminder).
+        if (spideyContainer.visibility == VISIBLE) {
+            spideyRetractAndHide()
+        } else {
+            catDashOutAndHide()
+        }
+    }
+
+    /** Cat: dashes back out to the right. */
+    private fun catDashOutAndHide() {
         hideBubbleNow()
-        startWalkAnimation()
+        startRunAnimation()
         charHolder.animate().cancel()
         charHolder.animate()
             .translationX(charSizePx.toFloat())
-            .setDuration(900)
+            .setDuration(700)
             .setInterpolator(DecelerateInterpolator())
             .withEndAction {
-                stopWalkAnimation()
+                stopRunAnimation()
+                charHolder.rotation = 0f
                 hideCompletely()
             }
             .start()
+    }
+
+    /** Spider-Man: retracts the web and rises back up. */
+    private fun spideyRetractAndHide() {
+        spideyHideBubbleNow()
+        spideySwingAnim?.cancel()
+        spideySwing.rotation = 0f
+        spideyDropAnim?.cancel()
+        val dropPx = dp(240).toFloat()
+        spideyDropAnim = ValueAnimator.ofFloat(1f, 0f).apply {
+            duration = 800
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { anim ->
+                val f = anim.animatedValue as Float
+                webLine.scaleY = f
+                spideyView.translationY = -dropPx + dropPx * f
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    hideCompletely()
+                }
+            })
+            start()
+        }
     }
 
     private fun hideCompletely() {
         showingReminder = false
         charHolder.animate().cancel()
         charHolder.translationX = 0f
+        charHolder.rotation = 0f
         resetPaws()
+        spideyDropAnim?.cancel()
+        spideySwingAnim?.cancel()
+        spideyContainer.visibility = GONE
         visibility = GONE
         setMoveLoopRunning(false)
     }
@@ -415,8 +572,54 @@ class CompanionView @JvmOverloads constructor(
         charHolder.addView(faceView)
         charHolder.setOnTouchListener(dragTouchListener)
 
+        // Spider-Man: hangs from a web line that extends from the top.
+        // The swing holder pivots at the top-center for the sway animation.
+        spideyContainer = FrameLayout(context).apply {
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+            visibility = GONE
+        }
+        spideySwing = FrameLayout(context).apply {
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+        }
+        webLine = View(context).apply {
+            val w = dp(4)
+            layoutParams = LayoutParams(w, dp(240)).apply {
+                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            }
+            setBackgroundColor(ContextCompat.getColor(context, R.color.ink))
+        }
+        spideyView = ImageView(context).apply {
+            val sz = dp(96)
+            layoutParams = LayoutParams(sz, sz).apply {
+                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                topMargin = dp(240)
+            }
+            setImageResource(R.drawable.spidey)
+            isClickable = false
+            isFocusable = false
+        }
+        spideyBubble = TextView(context).apply {
+            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
+                .apply { gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL }
+            setBackgroundResource(R.drawable.bubble_bg)
+            setPadding(dp(10), dp(6), dp(10), dp(6))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            setTextColor(ContextCompat.getColor(context, R.color.ink))
+            maxWidth = dp(220)
+            visibility = GONE
+            alpha = 0f
+            isClickable = false
+            isFocusable = false
+        }
+        spideySwing.addView(webLine)
+        spideySwing.addView(spideyView)
+        spideyContainer.addView(spideySwing)
+        spideyContainer.addView(spideyBubble)
+        spideyContainer.setOnTouchListener(dragTouchListener)
+
         addView(bubble)
         addView(charHolder)
+        addView(spideyContainer)
 
         setMoveLoopRunning(true)
         scheduleBlink()
