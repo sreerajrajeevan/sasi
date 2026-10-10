@@ -8,12 +8,15 @@ wind down at bedtime, and wake up to a greeting in the morning.
 
 - **Floating overlay** — Sasi is a tiny vector cat (round head, triangle ears, wagging
   tail, little paws) with whiskered faces for every mood.
-- **Reminders-only** — Sasi stays completely hidden and only walks in from
-  the screen edge to deliver a reminder (rest due, bedtime, wake-up, gentle
-  nudge, focus complete, break over). It walks in with a stepping
-  animation, shows the message in a speech bubble, then walks back out and
-  hides after ~10 seconds. Tap it to dismiss early. No idle floating, no
-  edge sliver — it only appears when it has something to tell you.
+- **Reminders-only** — Sasi stays completely hidden and only appears to
+  deliver a reminder (rest due, bedtime, wake-up, gentle nudge, focus
+  complete, break over). Pick your character in Settings:
+  - Spider-Man hangs down from the top of the screen on a web line,
+    sways gently, tells the reminder, then retracts back up.
+  - Cat sprints in from the right edge with a bouncy run, tells the
+    reminder, then dashes back out.
+  Tap to dismiss early. No idle floating — it only appears when it has
+  something to tell you.
 - **Moods** — Sasi reacts to your day: happy after you interact, worried after
   an hour of continuous screen time, tired after 90 minutes, sleepy in your
   bedtime window (movement pauses then). Each mood gets its own cat face.

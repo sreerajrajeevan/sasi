@@ -47,6 +47,7 @@ data class PrefsSnapshot(
     val lockHideArmed: Boolean,
     val peekMode: Boolean,
     val peekSide: Int,
+    val character: Int,
     // Phase 2: focus/break timers + history
     val focusActive: Boolean,
     val focusEndsAt: Long,
@@ -114,6 +115,7 @@ class Prefs(private val context: Context) {
         private val KEY_LOCK_ARMED = booleanPreferencesKey("lock_hide_armed")
         private val KEY_PEEK_MODE = booleanPreferencesKey("peek_mode")
         private val KEY_PEEK_SIDE = intPreferencesKey("peek_side")
+        private val KEY_CHARACTER = intPreferencesKey("character") // 0 = Spider-Man, 1 = Cat, 2 = TBD
         private val KEY_FOCUS_ACTIVE = booleanPreferencesKey("focus_active")
         private val KEY_FOCUS_ENDS_AT = longPreferencesKey("focus_ends_at")
         private val KEY_FOCUS_TOTAL_MIN = intPreferencesKey("focus_total_min")
@@ -218,6 +220,8 @@ class Prefs(private val context: Context) {
         context.dataStore.data.map { it[KEY_PEEK_MODE] ?: true }
     val peekSide: Flow<Int> =
         context.dataStore.data.map { it[KEY_PEEK_SIDE] ?: 1 }
+    val character: Flow<Int> =
+        context.dataStore.data.map { it[KEY_CHARACTER] ?: 0 }
     val focusActive: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_FOCUS_ACTIVE] ?: false }
     val focusEndsAt: Flow<Long> =
@@ -377,6 +381,10 @@ class Prefs(private val context: Context) {
     suspend fun setPeekMode(value: Boolean) {
         context.dataStore.edit { it[KEY_PEEK_MODE] = value }
     }
+    suspend fun setCharacter(value: Int) {
+        context.dataStore.edit { it[KEY_CHARACTER] = value.coerceIn(0, 1) }
+    }
+
     suspend fun setPeekSide(value: Int) {
         context.dataStore.edit { it[KEY_PEEK_SIDE] = value.coerceIn(0, 1) }
     }
@@ -623,7 +631,8 @@ class Prefs(private val context: Context) {
             hapticFeedback = data[KEY_HAPTIC] ?: true,
             lockHideArmed = data[KEY_LOCK_ARMED] ?: false,
             peekMode = data[KEY_PEEK_MODE] ?: true,
-            peekSide = data[KEY_PEEK_SIDE] ?: 1,
+            peekSide = data[KEY_PEEK_SIDE] ?: 1,,
+            character = data[KEY_CHARACTER] ?: 0
             focusActive = data[KEY_FOCUS_ACTIVE] ?: false,
             focusEndsAt = data[KEY_FOCUS_ENDS_AT] ?: 0L,
             focusTotalMin = data[KEY_FOCUS_TOTAL_MIN] ?: 25,
