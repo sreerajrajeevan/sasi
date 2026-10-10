@@ -136,8 +136,17 @@ class CompanionView @JvmOverloads constructor(
 
     // Edge-peek presence: Sasi lives as a sliver at a screen edge instead of
     // floating around. peekMode is the setting; peeking is the live state.
-    private var peekMode = true
+    private var peekMode = false
     private var peeking = false
+    /**
+     * Reminders-only mode: the cat stays completely hidden and only walks
+     * in from the screen edge to deliver a reminder, then walks back out.
+     * True while the cat is out for a reminder.
+     */
+    private var showingReminder = false
+    private var walkOutRunnable: Runnable? = null
+    private var walkPhase = 0f
+    private var walkAnimRunning = false
     private var peekSide = 1 // 0 = left edge, 1 = right edge, 2 = bottom edge
     private var geomF = 0f // window geometry fraction: 0 = peeked (sliver), 1 = visiting (full)
     private var slideAnim: ValueAnimator? = null
@@ -152,6 +161,134 @@ class CompanionView @JvmOverloads constructor(
     }
 
     /** Starts/stops the 50ms step loop. Stopped while peeking (battery). */
+    /** Paw-stepping walk cycle used while the cat walks in/out for a reminder. */
+    private val walkLoop = object : Runnable {
+        override fun run() {
+            if (!walkAnimRunning) return
+            walkPhase += 0.22f
+            val lift = dp(7).toFloat()
+            pawLeft.translationY = -lift * max(0f, sin(walkPhase))
+            pawRight.translationY = -lift * max(0f, sin(walkPhase + PI.toFloat()))
+            val sway = sin(walkPhase * 2f) * dp(2)
+            bodyView.translationY = sway
+            faceView.translationY = sway
+            tailView.rotation = sin(walkPhase).toFloat() * 8f
+            handler.postDelayed(this, 50)
+        }
+    }
+
+    private fun startWalkAnimation() {
+        if (walkAnimRunning) return
+        walkAnimRunning = true
+        handler.post(walkLoop)
+    }
+
+    private fun stopWalkAnimation() {
+        walkAnimRunning = false
+        handler.removeCallbacks(walkLoop)
+        resetPaws()
+        bodyView.translationY = 0f
+        faceView.translationY = 0f
+        tailView.rotation = 0f
+    }
+
+    /**
+     * Walks the cat in from the right screen edge to deliver a reminder.
+     * This is the ONLY way the cat appears on screen — it stays completely
+     * hidden otherwise.
+     */
+    fun walkInForReminder(text: String, visitMillis: Long = 10_000L) {
+        walkOutRunnable?.let { handler.removeCallbacks(it) }
+        walkOutRunnable = null
+
+        positionForReminder()
+        if (visibility != VISIBLE) {
+            visibility = VISIBLE
+            alpha = 1f
+        }
+
+        // Start shifted right (clipped by the window = invisible), walk left.
+        val cs = charSizePx.toFloat()
+        charHolder.translationX = cs
+        showingReminder = true
+        setMoveLoopRunning(true)
+        startWalkAnimation()
+
+        charHolder.animate().cancel()
+        charHolder.animate()
+            .translationX(0f)
+            .setDuration(1200)
+            .setInterpolator(DecelerateInterpolator())
+            .withEndAction {
+                stopWalkAnimation()
+                if (text.isNotEmpty() && speechBubblesEnabled) {
+                    speak(text)
+                }
+                scheduleWalkOut(visitMillis)
+            }
+            .start()
+
+        onUserInteraction?.invoke()
+    }
+
+    /** Window at the right edge, vertically centered, full cat size. */
+    private fun positionForReminder() {
+        val w = winParams ?: return
+        val cs = charSizePx
+        val hr = headroomPx()
+        w.x = (screenW - cs - edgeMarginPx()).coerceAtLeast(0)
+        w.y = (screenH / 2 - (cs + hr) / 2).coerceAtLeast(0)
+        w.width = cs
+        w.height = cs + hr
+        try {
+            wm?.updateViewLayout(this, w)
+        } catch (e: Exception) {
+        }
+    }
+
+    private fun scheduleWalkOut(delayMillis: Long) {
+        walkOutRunnable?.let { handler.removeCallbacks(it) }
+        val r = Runnable { walkOutAndHide() }
+        walkOutRunnable = r
+        handler.postDelayed(r, delayMillis)
+    }
+
+    /**
+     * Walks the cat back out to the right and hides completely.
+     * Called after the reminder timeout or when the user taps the cat.
+     */
+    fun walkOutAndHide() {
+        walkOutRunnable?.let { handler.removeCallbacks(it) }
+        walkOutRunnable = null
+        if (!showingReminder) {
+            hideCompletely()
+            return
+        }
+        hideBubbleNow()
+        startWalkAnimation()
+        charHolder.animate().cancel()
+        charHolder.animate()
+            .translationX(charSizePx.toFloat())
+            .setDuration(900)
+            .setInterpolator(DecelerateInterpolator())
+            .withEndAction {
+                stopWalkAnimation()
+                hideCompletely()
+            }
+            .start()
+    }
+
+    private fun hideCompletely() {
+        showingReminder = false
+        charHolder.animate().cancel()
+        charHolder.translationX = 0f
+        resetPaws()
+        visibility = GONE
+        setMoveLoopRunning(false)
+    }
+
+    fun isShowingReminder(): Boolean = showingReminder
+
     private fun setMoveLoopRunning(running: Boolean) {
         if (running == moveLoopRunning) return
         moveLoopRunning = running
@@ -164,16 +301,10 @@ class CompanionView @JvmOverloads constructor(
                 dragging = false
                 longPressFired = false
                 downTime = SystemClock.uptimeMillis()
-                downRawX = event.rawX
-                downRawY = event.rawY
-                downPosX = posX
-                downPosY = posY
-                pauseUntil = SystemClock.uptimeMillis() + 60_000L // paused until released
-                autoHideRunnable?.let { handler.removeCallbacks(it) }
-                resumeRunnable?.let { handler.removeCallbacks(it) }
+                pauseUntil = SystemClock.uptimeMillis() + 60_000L
                 longPressRunnable?.let { handler.removeCallbacks(it) }
                 longPressRunnable = Runnable {
-                    if (!dragging && !longPressFired) {
+                    if (!longPressFired) {
                         longPressFired = true
                         if (hapticEnabled) {
                             charHolder.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
@@ -182,101 +313,23 @@ class CompanionView @JvmOverloads constructor(
                         onLongPressMenu?.invoke()
                     }
                 }.also { handler.postDelayed(it, 700) }
-                v.parent?.requestDisallowInterceptTouchEvent(true)
                 true
             }
             MotionEvent.ACTION_MOVE -> {
-                val dx = event.rawX - downRawX
-                val dy = event.rawY - downRawY
-                if (!dragging && (abs(dx) > touchSlop || abs(dy) > touchSlop)) {
-                    dragging = true
-                    longPressRunnable?.let { handler.removeCallbacks(it) }
-                    moodOverride = Mood.HAPPY // picked-up expression
-                    refreshFace()
-                    if (peeking) {
-                        // Pulled out of the edge: become a free visit.
-                        peeking = false
-                        slideAnim?.let { it.removeAllListeners(); it.cancel() }
-                        slideAnim = null
-                        geomF = 1f
-                        val vr = visitGeom()
-                        posX = vr.x
-                        posY = vr.y
-                        // Re-anchor the drag so it continues smoothly from here.
-                        downPosX = posX
-                        downPosY = posY
-                        downRawX = event.rawX
-                        downRawY = event.rawY
-                        pushPosition()
-                        setMoveLoopRunning(true)
-                    }
-                    onUserInteraction?.invoke()
-                }
-                if (dragging) {
-                    posX = (downPosX + dx).coerceIn(0f, maxX)
-                    posY = (downPosY + dy).coerceIn(0f, maxY)
-                    pushPosition()
-                }
+                // Reminders-only: no dragging; the cat is only out briefly.
                 true
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 longPressRunnable?.let { handler.removeCallbacks(it) }
-                when {
-                    longPressFired -> {
-                        longPressFired = false
-                        scheduleResume(1500)
-                    }
-                    dragging -> {
-                        dragging = false
-                        moodOverride = null
-                        refreshFace()
-                        // Landing bounce.
-                        reactionUntil = SystemClock.uptimeMillis() + 400L
-                        charHolder.animate().cancel()
-                        charHolder.animate().scaleX(1.1f).scaleY(1.1f).setDuration(120)
-                            .withEndAction {
-                                charHolder.animate().scaleX(1f).scaleY(1f).setDuration(160).start()
-                            }.start()
-                        onDrop?.invoke(posX, posY)
+                if (longPressFired) {
+                    longPressFired = false
+                    pauseUntil = 0L
+                } else {
+                    val pressDuration = SystemClock.uptimeMillis() - downTime
+                    pauseUntil = 0L
+                    if (pressDuration < 250) {
                         onUserInteraction?.invoke()
-                        if (peekMode) {
-                            // Dropped near an edge -> snap back to peek on that
-                            // side; otherwise stay for a visit, then slide back.
-                            val edgeSnap = dp(72).toFloat()
-                            when {
-                                posX <= edgeSnap -> {
-                                    setPeekSide(0)
-                                    onPeekSideChanged?.invoke(0)
-                                    slideOut()
-                                }
-                                posX >= maxX - edgeSnap -> {
-                                    setPeekSide(1)
-                                    onPeekSideChanged?.invoke(1)
-                                    slideOut()
-                                }
-                                posY >= maxY - edgeSnap -> {
-                                    setPeekSide(2)
-                                    onPeekSideChanged?.invoke(2)
-                                    slideOut()
-                                }
-                                else -> {
-                                    scheduleResume(3000)
-                                    scheduleReturnToPeek(60_000L)
-                                }
-                            }
-                        } else {
-                            scheduleResume(3000)
-                            scheduleAutoHide(60_000L)
-                        }
-                    }
-                    else -> {
-                        val pressDuration = SystemClock.uptimeMillis() - downTime
-                        pauseUntil = 0L
-                        v.performClick()
-                        if (pressDuration < 250) {
-                            onUserInteraction?.invoke()
-                            handleTap()
-                        }
+                        handleTap()
                     }
                 }
                 true
@@ -393,16 +446,11 @@ class CompanionView @JvmOverloads constructor(
             maxY = (screenH - charSizePx - headroomPx()).toFloat().coerceAtLeast(0f)
             posX = startX.coerceIn(0f, maxX)
             posY = startY.coerceIn(0f, maxY)
-            if (this.peekMode && !hiddenByUser) {
-                // Peek presence: only a sliver at the edge, never a flash of
-                // the full cat on start.
-                geomF = 0f
-                setPeeking(true, this.peekSide)
-            } else if (!this.peekMode) {
-                geomF = 1f
-                pushPosition()
-            }
-            // peekMode && hiddenByUser: stay GONE, positioned on next show.
+            // Reminders-only: the cat stays completely hidden until a
+            // reminder walks it in. No peek sliver, no idle floating.
+            this.peekMode = false
+            this.peeking = false
+            visibility = GONE
         }
     }
 
@@ -758,17 +806,10 @@ class CompanionView @JvmOverloads constructor(
 
     /** Make sure the overlay is on screen (idempotent). */
     fun ensureVisible() {
+        // Reminders-only: "visible" just means enabled. The cat stays hidden
+        // until a reminder walks it in via walkInForReminder().
         hiddenByUser = false
         autoHideRunnable?.let { handler.removeCallbacks(it) }
-        if (visibility != VISIBLE) visibility = VISIBLE
-        animate().cancel()
-        alpha = 1f
-        if (peekMode) {
-            // "Visible" means the edge sliver in peek mode.
-            if (!dragging) setPeeking(true, peekSide)
-        } else {
-            post { updateBounds(); pushPosition() }
-        }
     }
 
     /** Pop back to deliver a warning: slide out, then return to peek. */
@@ -822,31 +863,14 @@ class CompanionView @JvmOverloads constructor(
     }
 
     private fun handleTap() {
-        val now = SystemClock.uptimeMillis()
-        tapTimes.removeAll { now - it > 2000 }
-        tapTimes.add(now)
-        if (tapTimes.size >= 3) {
-            // Rapid tapping: playfully annoyed, with a cooldown.
-            tapTimes.clear()
-            tapRunnable?.let { handler.removeCallbacks(it) }
-            if (consumePeekTap()) return
-            if (now - lastRapidMillis > 30_000L) {
-                lastRapidMillis = now
-                flashMood(Mood.WORRIED, 1500)
-                if (speechBubblesEnabled) speak("ok ok \uD83D\uDE05")
+        // Reminders-only: a tap dismisses the reminder early (cat walks out).
+        if (showingReminder) {
+            if (hapticEnabled) {
+                performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
             }
+            walkOutAndHide()
             return
         }
-        // Wait 400ms to disambiguate single vs double vs rapid taps.
-        tapRunnable?.let { handler.removeCallbacks(it) }
-        tapRunnable = Runnable {
-            when (tapTimes.size) {
-                1 -> doSingleTap()
-                2 -> doDoubleTap()
-                else -> Unit
-            }
-            tapTimes.clear()
-        }.also { handler.postDelayed(it, 400) }
     }
 
     private fun doSingleTap() {

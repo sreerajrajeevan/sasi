@@ -365,8 +365,6 @@ class CompanionService : Service() {
                     v.tapReactionsEnabled = snapshot.tapReactions
                     v.speechBubblesEnabled = snapshot.speechBubbles
                     v.hapticEnabled = snapshot.hapticFeedback
-                    v.setPeekMode(snapshot.peekMode)
-                    v.setPeekSide(snapshot.peekSide)
                     v.refreshScreenSize()
                 }
             }
@@ -403,29 +401,30 @@ class CompanionService : Service() {
         interactive: Boolean,
     ) {
         val silent = reminder is ReminderEngine.Reminder.IdleChatter ||
-            reminder is ReminderEngine.Reminder.GentleNudge ||
             reminder is ReminderEngine.Reminder.Milestone
         if (silent) {
-            // Bubble-only: never a notification, never a sound, never pops back.
-            if (snapshot.speechBubbles) {
-                withContext(Dispatchers.Main) { view?.speak(reminder.bubble()) }
-            }
+            // Truly silent: no cat, no notification (nothing to show it on).
             return
         }
-        // Real warning (rest due / bedtime / wake): notification + system sound.
+        // Real reminder (rest due / bedtime / wake / gentle nudge): the cat
+        // walks in to tell it, plus a notification.
         val canRestore = visibility == VisibilityState.VISIBLE || visibility.restorableByReminder()
         if (canRestore && visibility != VisibilityState.VISIBLE) {
             prefs.setVisibilityState(VisibilityState.VISIBLE.name)
         }
-        if (canRestore) {
+        if (canRestore && interactive) {
             withContext(Dispatchers.Main) {
                 ensureOverlay()
-                view?.showForWarning()
-                if (interactive && snapshot.speechBubbles) view?.speak(reminder.bubble(), allowWhilePeeking = true)
-                view?.scheduleAutoHide(60_000L)
+                view?.walkInForReminder(
+                    if (snapshot.speechBubbles) reminder.bubble() else "",
+                )
             }
         }
-        Notif.showReminder(this@CompanionService, reminder.title(), reminder.text())
+        if (reminder is ReminderEngine.Reminder.GentleNudge) {
+            Notif.showQuietReminder(this@CompanionService, reminder.title(), reminder.text())
+        } else {
+            Notif.showReminder(this@CompanionService, reminder.title(), reminder.text())
+        }
     }
 
     // ------------------------------------------------------------------
@@ -497,9 +496,10 @@ class CompanionService : Service() {
                     prefs.setVisibilityState(VisibilityState.VISIBLE.name)
                     withContext(Dispatchers.Main) {
                         ensureOverlay()
-                        view?.showForWarning()
                         view?.flashMood(Mood.EXCITED, 2500)
-                        if (snapshot.speechBubbles) view?.speak("Focus complete! 🎉", allowWhilePeeking = true)
+                        view?.walkInForReminder(
+                            if (snapshot.speechBubbles) "Focus complete! 🎉" else "",
+                        )
                     }
                     Notif.showReminder(
                         this,
@@ -547,10 +547,10 @@ class CompanionService : Service() {
                     }
                 } else {
                     withContext(Dispatchers.Main) {
-                        view?.showForWarning()
                         view?.flashMood(Mood.HAPPY, 1500)
-                        if (snapshot.speechBubbles) view?.speak("Back at it 💪", allowWhilePeeking = true)
-                        view?.scheduleReturnToPeek(20_000L)
+                        view?.walkInForReminder(
+                            if (snapshot.speechBubbles) "Back at it 💪" else "",
+                        )
                     }
                     Notif.showQuietReminder(this, "$name: break over", "Back at it 💪")
                 }
@@ -900,7 +900,6 @@ class CompanionService : Service() {
         companionView.onLongPressMenu = { showHideMenu() }
         companionView.onDrop = { x, y -> scope.launch { prefs.setPos(x, y) } }
         companionView.onTapReaction = { onTapReaction() }
-        companionView.onPeekSideChanged = { side -> scope.launch { prefs.setPeekSide(side) } }
         try {
             wm.addView(companionView, params)
         } catch (e: Exception) {
@@ -1056,10 +1055,11 @@ class CompanionService : Service() {
                     }
                     prefs.setVisibilityState(next.name)
                     if (next == VisibilityState.VISIBLE) {
+                        // Reminders-only: re-enabling just arms future
+                        // reminders; the cat stays hidden until one fires.
                         withContext(Dispatchers.Main) {
                             ensureOverlay()
-                            view?.showForWarning()
-                            view?.scheduleAutoHide(60_000L)
+                            view?.ensureVisible()
                         }
                     }
                 }
@@ -1070,8 +1070,7 @@ class CompanionService : Service() {
                     prefs.setVisibilityState(VisibilityState.VISIBLE.name)
                     withContext(Dispatchers.Main) {
                         ensureOverlay()
-                        view?.showForWarning()
-                        view?.scheduleAutoHide(60_000L)
+                        view?.ensureVisible()
                     }
                 }
                 return START_STICKY

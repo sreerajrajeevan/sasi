@@ -8,22 +8,18 @@ wind down at bedtime, and wake up to a greeting in the morning.
 
 - **Floating overlay** — Sasi is a tiny vector cat (round head, triangle ears, wagging
   tail, little paws) with whiskered faces for every mood.
-- **Edge peek** — instead of floating around all the time, Sasi lives as a
-  small sliver at the screen edge (left, right, or bottom — one ear, one eye,
-  whiskers peeking out, like peeking into a room). It only comes fully on
-  screen when you tap it or when a real reminder fires; idle chatter stays
-  silent while it peeks. Tap the sliver
-  and it slides out for a visit, then slides back after ~30 seconds.
-  Drag it near an edge to dock it on that side. Warnings slide it out to
-  deliver their message, then it returns to the edge. Toggle "Peek from screen
-  edge" in Settings to go back to free-floating.
+- **Reminders-only** — Sasi stays completely hidden and only walks in from
+  the screen edge to deliver a reminder (rest due, bedtime, wake-up, gentle
+  nudge, focus complete, break over). It walks in with a stepping
+  animation, shows the message in a speech bubble, then walks back out and
+  hides after ~10 seconds. Tap it to dismiss early. No idle floating, no
+  edge sliver — it only appears when it has something to tell you.
 - **Moods** — Sasi reacts to your day: happy after you interact, worried after
   an hour of continuous screen time, tired after 90 minutes, sleepy in your
   bedtime window (movement pauses then). Each mood gets its own cat face.
-- **Long-press hide menu** — hold Sasi for a second to hide it for 15 minutes
-  or an hour, until you lock your screen, until the next reminder, or turn it
-  off entirely. Sasi only pops back for real warnings (rest, bedtime, wake);
-  gentle nudges and chatter are bubble-only and never interrupt.
+- **Long-press hide menu** — hold Sasi for a second to snooze reminders for
+  15 minutes or an hour, until you lock your screen, until the next reminder,
+  or turn it off entirely.
 - **Wellness reminders** — rest breaks after N minutes of continuous use
   (with a soft bubble-only nudge at 45 min), bedtime nudges, morning
   greetings, 2h/4h/6h screen-time milestones, and idle chatter. Real warnings
