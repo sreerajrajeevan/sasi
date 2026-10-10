@@ -631,8 +631,8 @@ class Prefs(private val context: Context) {
             hapticFeedback = data[KEY_HAPTIC] ?: true,
             lockHideArmed = data[KEY_LOCK_ARMED] ?: false,
             peekMode = data[KEY_PEEK_MODE] ?: true,
-            peekSide = data[KEY_PEEK_SIDE] ?: 1,,
-            character = data[KEY_CHARACTER] ?: 0
+            peekSide = data[KEY_PEEK_SIDE] ?: 1,
+            character = data[KEY_CHARACTER] ?: 0,
             focusActive = data[KEY_FOCUS_ACTIVE] ?: false,
             focusEndsAt = data[KEY_FOCUS_ENDS_AT] ?: 0L,
             focusTotalMin = data[KEY_FOCUS_TOTAL_MIN] ?: 25,

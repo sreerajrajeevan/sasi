@@ -338,8 +338,8 @@ class CompanionView @JvmOverloads constructor(
         val w = winParams ?: return
         val cs = charSizePx
         val hr = headroomPx()
-        w.x = (screenW - cs - edgeMarginPx()).coerceAtLeast(0)
-        w.y = (screenH / 2 - (cs + hr) / 2).coerceAtLeast(0)
+        w.x = (screenW - cs - edgeMarginPx().toInt()).coerceAtLeast(0)
+        w.y = ((screenH - cs - hr) / 2).toInt().coerceAtLeast(0)
         w.width = cs
         w.height = cs + hr
         try {
