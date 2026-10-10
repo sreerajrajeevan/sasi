@@ -19,6 +19,13 @@ class ScreenTimeTracker {
     var sessionStartMillis: Long = System.currentTimeMillis()
         private set
 
+    /**
+     * The most recently finished screen session as (startMillis, durationMillis),
+     * set when the screen turns off. Consume with [takeEndedSession].
+     */
+    var lastEndedSession: Pair<Long, Long>? = null
+        private set
+
     private var continuousMillis: Long = 0L
     private var wasInteractive: Boolean = false
 
@@ -32,10 +39,18 @@ class ScreenTimeTracker {
             continuousMillis += tickMillis
         } else if (wasInteractive) {
             // Screen turned off: session ends, continuous counter resets.
+            lastEndedSession = sessionStartMillis to continuousMillis
             continuousMillis = 0L
         }
         wasInteractive = isInteractive
         continuousMinutes = (continuousMillis / 60_000L).toInt()
+    }
+
+    /** Returns and clears the most recently ended session, if any. */
+    fun takeEndedSession(): Pair<Long, Long>? {
+        val ended = lastEndedSession
+        lastEndedSession = null
+        return ended
     }
 
     fun getTodayScreenMinutes(context: Context): Long {
@@ -83,6 +98,19 @@ class ScreenTimeTracker {
             val hours = totalMinutes / 60
             val minutes = totalMinutes % 60
             return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
+        }
+
+        /** "12:34" or "1:02:03" for timer countdowns. */
+        fun formatCountdown(millis: Long): String {
+            val totalSec = (millis / 1000).toInt().coerceAtLeast(0)
+            val hours = totalSec / 3600
+            val minutes = (totalSec % 3600) / 60
+            val seconds = totalSec % 60
+            return if (hours > 0) {
+                "%d:%02d:%02d".format(hours, minutes, seconds)
+            } else {
+                "%02d:%02d".format(minutes, seconds)
+            }
         }
     }
 }

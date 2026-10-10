@@ -10,12 +10,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import com.sree.sasi.R
 
-/** Sasi rendered from the same body + face vectors the overlay uses. */
+/** Sasi the cat, rendered from the same body + face vectors the overlay uses. */
 @Composable
-fun SasiFace(size: Dp, faceRes: Int = R.drawable.sasi_face_normal) {
+fun SasiFace(size: Dp, faceRes: Int = R.drawable.cat_face_normal) {
     Box(modifier = Modifier.size(size), contentAlignment = Alignment.Center) {
         Image(
-            painter = painterResource(id = R.drawable.sasi_body),
+            painter = painterResource(id = R.drawable.cat_body),
             contentDescription = null,
             modifier = Modifier.matchParentSize(),
         )

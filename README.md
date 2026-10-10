@@ -6,18 +6,23 @@ wind down at bedtime, and wake up to a greeting in the morning.
 
 ## Features
 
-- **Floating overlay** — Sasi (a tiny blob with ears) glides between
-  waypoints with small stepping feet, mostly near screen edges, and idles with
-  subtle breathing, occasional glances, and yawns when tired. Tap for a tiny
-  reaction (jump, blink, wave, or a *boop*); double-tap for an excited jump;
-  drag it anywhere — the spot is remembered.
+- **Floating overlay** — Sasi is a tiny vector cat (round head, triangle ears, wagging
+  tail, little paws) with whiskered faces for every mood.
+- **Reminders-only** — Sasi stays completely hidden and only appears to
+  deliver a reminder (rest due, bedtime, wake-up, gentle nudge, focus
+  complete, break over). Pick your character in Settings:
+  - Spider-Man hangs down from the top of the screen on a web line,
+    sways gently, tells the reminder, then retracts back up.
+  - Cat sprints in from the right edge with a bouncy run, tells the
+    reminder, then dashes back out.
+  Tap to dismiss early. No idle floating — it only appears when it has
+  something to tell you.
 - **Moods** — Sasi reacts to your day: happy after you interact, worried after
   an hour of continuous screen time, tired after 90 minutes, sleepy in your
-  bedtime window (movement pauses then). Each mood gets its own face.
-- **Long-press hide menu** — hold Sasi for a second to hide it for 15 minutes
-  or an hour, until you lock your screen, until the next reminder, or turn it
-  off entirely. Sasi only pops back for real warnings (rest, bedtime, wake);
-  gentle nudges and chatter are bubble-only and never interrupt.
+  bedtime window (movement pauses then). Each mood gets its own cat face.
+- **Long-press hide menu** — hold Sasi for a second to snooze reminders for
+  15 minutes or an hour, until you lock your screen, until the next reminder,
+  or turn it off entirely.
 - **Wellness reminders** — rest breaks after N minutes of continuous use
   (with a soft bubble-only nudge at 45 min), bedtime nudges, morning
   greetings, 2h/4h/6h screen-time milestones, and idle chatter. Real warnings
@@ -29,6 +34,23 @@ wind down at bedtime, and wake up to a greeting in the morning.
   and dims slightly.
 - **Screen-time dashboard** — today's total, current session, and progress
   toward your daily goal (all computed on-device via UsageStatsManager).
+- **Focus mode (Phase 2)** — start 15/25/45/60-minute or custom focus sessions
+  (optional repeating Pomodoro: 25 min focus + 5 min break) from the Home
+  screen. While focusing, Sasi calms down, shows a 🎯 face, and gives a quiet
+  timer bubble every ~5 minutes; finishing earns a celebration. Cancelling is
+  one tap, from Home or the notification.
+- **Break mode (Phase 2)** — 20-second, 2-minute, 5-minute, or custom breaks
+  with a gentle start/end (bubble + silent notification, never an alarm).
+- **Simple stats (Phase 2)** — last 14 days of screen time, sessions, and
+  focus minutes stored on-device; Home shows a 7-day bar summary with weekly
+  totals and your best focus day.
+- **Progression (Phase 3)** — Sasi grows with your healthy habits: XP and
+  levels (100 → 300 → 600…), coins, energy, and bond. Focus sessions, breaks,
+  respected rest reminders, staying under your daily goal, winding down before
+  bed, and saying hi all earn XP — raw screen time never does. Energy and bond
+  have floors and recover quickly; nothing is ever punished, and Sasi never
+  dies. Includes 3 deterministic daily missions and 10 one-time achievements,
+  all shown on the Home screen.
 - **Privacy-first** — everything stays on the device. No accounts, no ads,
   no analytics, no network calls. See [docs/PRIVACY_POLICY.md](docs/PRIVACY_POLICY.md).
 

@@ -3,6 +3,8 @@ package com.sree.sasi.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.material3.RadioButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -72,6 +74,7 @@ fun SettingsScreen(onBack: () -> Unit) {
     val tapReactions by app.prefs.tapReactions.collectAsState(initial = true)
     val speechBubbles by app.prefs.speechBubbles.collectAsState(initial = true)
     val hapticFeedback by app.prefs.hapticFeedback.collectAsState(initial = true)
+    val character by app.prefs.character.collectAsState(initial = 0)
 
     var nameDraft by remember(name) { mutableStateOf(name) }
 
@@ -86,6 +89,58 @@ fun SettingsScreen(onBack: () -> Unit) {
             text = stringResource(R.string.settings_title),
             style = MaterialTheme.typography.headlineSmall,
         )
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = "Character",
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    text = "Who drops in to tell you reminders?",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                listOf(
+                    0 to "🕷️ Spider-Man — hangs down from above",
+                    1 to "🐱 Cat — runs in from the side",
+                ).forEach { (index, label) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .selectable(
+                                selected = character == index,
+                                onClick = { scope.launch { app.prefs.setCharacter(index) } },
+                            )
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(
+                            selected = character == index,
+                            onClick = { scope.launch { app.prefs.setCharacter(index) } },
+                        )
+                        Text(
+                            text = label,
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(selected = false, onClick = null, enabled = false)
+                    Text(
+                        text = "??? — coming soon",
+                        modifier = Modifier.padding(start = 8.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
 
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(
