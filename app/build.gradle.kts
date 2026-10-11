@@ -32,7 +32,7 @@ android {
     // Real cat photo: stored as base64 text (src/main/res/drawable/cat_real.png.b64)
     // and decoded to cat_real.png at configuration time — byte-exact, no
     // manual binary upload needed.
-    val catRealB64 = file("src/main/res/drawable/cat_real.png.b64")
+    val catRealB64 = file("cat_real.png.b64")
     if (catRealB64.exists()) {
         file("src/main/res/drawable/cat_real.png").writeBytes(
             Base64.getMimeDecoder().decode(catRealB64.readText())
