@@ -150,12 +150,18 @@ class CompanionView @JvmOverloads constructor(
     private var walkAnimRunning = false
     /** Active character: 0 = Spider-Man (drops from above), 1 = Cat (runs in). */
     var character: Int = 0
+    /** Timing controls (from Settings). */
+    var visitDurationMs: Long = 10_000L
+    var entranceSpeed: Float = 1f
+    var exitSpeed: Float = 1f
     // Spider-Man views: a web line + the hero, inside a swing holder.
     private lateinit var spideyContainer: FrameLayout
     private lateinit var spideySwing: FrameLayout
     private lateinit var webLine: View
     private lateinit var spideyView: ImageView
     private lateinit var spideyBubble: TextView
+    /** Realistic cat image (replaces the vector cat for the Cat character). */
+    private lateinit var catRealView: ImageView
     private var spideyDropAnim: ValueAnimator? = null
     private var spideySwingAnim: ValueAnimator? = null
     private var peekSide = 1 // 0 = left edge, 1 = right edge, 2 = bottom edge
@@ -213,53 +219,78 @@ class CompanionView @JvmOverloads constructor(
      * - Cat (1): runs in from the right edge, tells the reminder, then
      *   dashes back out.
      */
-    fun walkInForReminder(text: String, visitMillis: Long = 10_000L) {
+    fun walkInForReminder(text: String) {
         walkOutRunnable?.let { handler.removeCallbacks(it) }
         walkOutRunnable = null
         if (character == 0) {
-            spideyDropForReminder(text, visitMillis)
+            spideyDropForReminder(text)
         } else {
-            catRunInForReminder(text, visitMillis)
+            catRunInForReminder(text)
         }
         onUserInteraction?.invoke()
     }
 
-    /** Cat: runs in from the right edge with a bouncy sprint. */
-    private fun catRunInForReminder(text: String, visitMillis: Long) {
+    /** Cat: the real kitten sprints in from the right edge. */
+    private fun catRunInForReminder(text: String) {
         positionForCatReminder()
         spideyContainer.visibility = GONE
-        charHolder.visibility = VISIBLE
+        charHolder.visibility = GONE
+        catRealView.visibility = VISIBLE
         if (visibility != VISIBLE) {
             visibility = VISIBLE
             alpha = 1f
         }
 
         // Start shifted right (clipped by the window = invisible), sprint left.
-        val cs = charSizePx.toFloat()
-        charHolder.translationX = cs
-        charHolder.rotation = -10f // lean into the run
+        // The photo is already mid-stride; the fast dash + bounce sells the run.
+        val cw = dp(180).toFloat()
+        catRealView.translationX = cw
+        catRealView.rotation = -6f // lean into the sprint
         showingReminder = true
         setMoveLoopRunning(true)
-        startRunAnimation()
+        startCatBounce()
 
-        charHolder.animate().cancel()
-        charHolder.animate()
+        catRealView.animate().cancel()
+        catRealView.animate()
             .translationX(0f)
-            .setDuration(900)
+            .setDuration((900 / entranceSpeed).toLong().coerceAtLeast(200))
             .setInterpolator(DecelerateInterpolator())
             .withEndAction {
-                stopRunAnimation()
-                charHolder.rotation = 0f
+                stopCatBounce()
+                catRealView.rotation = 0f
+                catRealView.translationY = 0f
                 if (text.isNotEmpty() && speechBubblesEnabled) {
                     speak(text)
                 }
-                scheduleWalkOut(visitMillis)
+                scheduleWalkOut(visitDurationMs)
             }
             .start()
     }
 
+    /** Subtle vertical bounce while the real cat sprints. */
+    private var catBounceAnim: ValueAnimator? = null
+
+    private fun startCatBounce() {
+        catBounceAnim?.cancel()
+        val hop = dp(8).toFloat()
+        catBounceAnim = ValueAnimator.ofFloat(0f, -hop, 0f).apply {
+            duration = 320
+            repeatCount = ValueAnimator.INFINITE
+            addUpdateListener { anim ->
+                catRealView.translationY = anim.animatedValue as Float
+            }
+            start()
+        }
+    }
+
+    private fun stopCatBounce() {
+        catBounceAnim?.cancel()
+        catBounceAnim = null
+        catRealView.translationY = 0f
+    }
+
     /** Spider-Man: drops from above on a web line, sways gently. */
-    private fun spideyDropForReminder(text: String, visitMillis: Long) {
+    private fun spideyDropForReminder(text: String) {
         positionForSpideyReminder()
         charHolder.visibility = GONE
         spideyContainer.visibility = VISIBLE
@@ -283,7 +314,7 @@ class CompanionView @JvmOverloads constructor(
 
         // Drop: web extends as Spidey descends (single synced animator).
         spideyDropAnim = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 1100
+            duration = (1100 / entranceSpeed).toLong().coerceAtLeast(200)
             interpolator = DecelerateInterpolator()
             addUpdateListener { anim ->
                 val f = anim.animatedValue as Float
@@ -296,7 +327,7 @@ class CompanionView @JvmOverloads constructor(
                     if (text.isNotEmpty() && speechBubblesEnabled) {
                         spideySpeak(text)
                     }
-                    scheduleWalkOut(visitMillis)
+                    scheduleWalkOut(visitDurationMs)
                 }
             })
             start()
@@ -333,15 +364,16 @@ class CompanionView @JvmOverloads constructor(
         spideyBubble.alpha = 0f
     }
 
-    /** Window at the right edge, vertically centered, full cat size. */
+    /** Window at the right edge, vertically centered, real-cat size. */
     private fun positionForCatReminder() {
         val w = winParams ?: return
-        val cs = charSizePx
+        val cw = dp(180) // real cat image width + margin
+        val ch = dp(96)
         val hr = headroomPx()
-        w.x = (screenW - cs - edgeMarginPx().toInt()).coerceAtLeast(0)
-        w.y = ((screenH - cs - hr) / 2).toInt().coerceAtLeast(0)
-        w.width = cs
-        w.height = (cs + hr).toInt()
+        w.x = (screenW - cw - edgeMarginPx().toInt()).coerceAtLeast(0)
+        w.y = ((screenH - ch - hr) / 2).toInt().coerceAtLeast(0)
+        w.width = cw
+        w.height = (ch + hr).toInt()
         try {
             wm?.updateViewLayout(this, w)
         } catch (e: Exception) {
@@ -393,15 +425,15 @@ class CompanionView @JvmOverloads constructor(
     /** Cat: dashes back out to the right. */
     private fun catDashOutAndHide() {
         hideBubbleNow()
-        startRunAnimation()
-        charHolder.animate().cancel()
-        charHolder.animate()
-            .translationX(charSizePx.toFloat())
-            .setDuration(700)
+        startCatBounce()
+        catRealView.rotation = -6f
+        catRealView.animate().cancel()
+        catRealView.animate()
+            .translationX(dp(180).toFloat())
+            .setDuration((700 / exitSpeed).toLong().coerceAtLeast(200))
             .setInterpolator(DecelerateInterpolator())
             .withEndAction {
-                stopRunAnimation()
-                charHolder.rotation = 0f
+                stopCatBounce()
                 hideCompletely()
             }
             .start()
@@ -415,7 +447,7 @@ class CompanionView @JvmOverloads constructor(
         spideyDropAnim?.cancel()
         val dropPx = dp(240).toFloat()
         spideyDropAnim = ValueAnimator.ofFloat(1f, 0f).apply {
-            duration = 800
+            duration = (800 / exitSpeed).toLong().coerceAtLeast(200)
             interpolator = DecelerateInterpolator()
             addUpdateListener { anim ->
                 val f = anim.animatedValue as Float
@@ -436,6 +468,12 @@ class CompanionView @JvmOverloads constructor(
         charHolder.animate().cancel()
         charHolder.translationX = 0f
         charHolder.rotation = 0f
+        catRealView.animate().cancel()
+        catRealView.visibility = GONE
+        catRealView.translationX = 0f
+        catRealView.translationY = 0f
+        catRealView.rotation = 0f
+        stopCatBounce()
         resetPaws()
         spideyDropAnim?.cancel()
         spideySwingAnim?.cancel()
@@ -617,8 +655,22 @@ class CompanionView @JvmOverloads constructor(
         spideyContainer.addView(spideyBubble)
         spideyContainer.setOnTouchListener(dragTouchListener)
 
+        // Realistic cat: a real kitten photo that sprints in for reminders.
+        catRealView = ImageView(context).apply {
+            // 16:9-ish image; 96dp tall -> ~170dp wide.
+            layoutParams = LayoutParams(dp(170), dp(96)).apply {
+                gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            }
+            setImageResource(R.drawable.cat_real)
+            visibility = GONE
+            isClickable = false
+            isFocusable = false
+        }
+        catRealView.setOnTouchListener(dragTouchListener)
+
         addView(bubble)
         addView(charHolder)
+        addView(catRealView)
         addView(spideyContainer)
 
         setMoveLoopRunning(true)

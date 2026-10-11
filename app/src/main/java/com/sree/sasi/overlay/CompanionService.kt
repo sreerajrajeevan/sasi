@@ -366,6 +366,9 @@ class CompanionService : Service() {
                     v.speechBubblesEnabled = snapshot.speechBubbles
                     v.hapticEnabled = snapshot.hapticFeedback
                     v.character = snapshot.character
+                    v.visitDurationMs = snapshot.visitDurationSec * 1000L
+                    v.entranceSpeed = snapshot.entranceSpeed
+                    v.exitSpeed = snapshot.exitSpeed
                     v.refreshScreenSize()
                 }
             }
