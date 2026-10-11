@@ -13,10 +13,12 @@ wind down at bedtime, and wake up to a greeting in the morning.
   complete, break over). Pick your character in Settings:
   - Spider-Man hangs down from the top of the screen on a web line,
     sways gently, tells the reminder, then retracts back up.
-  - Cat sprints in from the right edge with a bouncy run, tells the
+  - Cat (a real kitten photo) sprints in from the right edge, tells the
     reminder, then dashes back out.
   Tap to dismiss early. No idle floating — it only appears when it has
   something to tell you.
+- **Character timing** — control how long they stay (3–30 sec), how fast
+  they come in (0.5x–2x), and how fast they leave (0.5x–2x), all in Settings.
 - **Moods** — Sasi reacts to your day: happy after you interact, worried after
   an hour of continuous screen time, tired after 90 minutes, sleepy in your
   bedtime window (movement pauses then). Each mood gets its own cat face.

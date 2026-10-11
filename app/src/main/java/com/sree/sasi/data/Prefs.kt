@@ -48,6 +48,9 @@ data class PrefsSnapshot(
     val peekMode: Boolean,
     val peekSide: Int,
     val character: Int,
+    val visitDurationSec: Int,
+    val entranceSpeed: Float,
+    val exitSpeed: Float,
     // Phase 2: focus/break timers + history
     val focusActive: Boolean,
     val focusEndsAt: Long,
@@ -116,6 +119,9 @@ class Prefs(private val context: Context) {
         private val KEY_PEEK_MODE = booleanPreferencesKey("peek_mode")
         private val KEY_PEEK_SIDE = intPreferencesKey("peek_side")
         private val KEY_CHARACTER = intPreferencesKey("character") // 0 = Spider-Man, 1 = Cat, 2 = TBD
+        private val KEY_VISIT_DURATION = intPreferencesKey("visit_duration_sec") // how long they stay
+        private val KEY_ENTRANCE_SPEED = floatPreferencesKey("entrance_speed") // 0.5x - 2x
+        private val KEY_EXIT_SPEED = floatPreferencesKey("exit_speed") // 0.5x - 2x
         private val KEY_FOCUS_ACTIVE = booleanPreferencesKey("focus_active")
         private val KEY_FOCUS_ENDS_AT = longPreferencesKey("focus_ends_at")
         private val KEY_FOCUS_TOTAL_MIN = intPreferencesKey("focus_total_min")
@@ -222,6 +228,12 @@ class Prefs(private val context: Context) {
         context.dataStore.data.map { it[KEY_PEEK_SIDE] ?: 1 }
     val character: Flow<Int> =
         context.dataStore.data.map { it[KEY_CHARACTER] ?: 0 }
+    val visitDurationSec: Flow<Int> =
+        context.dataStore.data.map { it[KEY_VISIT_DURATION] ?: 10 }
+    val entranceSpeed: Flow<Float> =
+        context.dataStore.data.map { it[KEY_ENTRANCE_SPEED] ?: 1f }
+    val exitSpeed: Flow<Float> =
+        context.dataStore.data.map { it[KEY_EXIT_SPEED] ?: 1f }
     val focusActive: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_FOCUS_ACTIVE] ?: false }
     val focusEndsAt: Flow<Long> =
@@ -383,6 +395,18 @@ class Prefs(private val context: Context) {
     }
     suspend fun setCharacter(value: Int) {
         context.dataStore.edit { it[KEY_CHARACTER] = value.coerceIn(0, 1) }
+    }
+
+    suspend fun setVisitDurationSec(value: Int) {
+        context.dataStore.edit { it[KEY_VISIT_DURATION] = value.coerceIn(3, 30) }
+    }
+
+    suspend fun setEntranceSpeed(value: Float) {
+        context.dataStore.edit { it[KEY_ENTRANCE_SPEED] = value.coerceIn(0.5f, 2f) }
+    }
+
+    suspend fun setExitSpeed(value: Float) {
+        context.dataStore.edit { it[KEY_EXIT_SPEED] = value.coerceIn(0.5f, 2f) }
     }
 
     suspend fun setPeekSide(value: Int) {
@@ -633,6 +657,9 @@ class Prefs(private val context: Context) {
             peekMode = data[KEY_PEEK_MODE] ?: true,
             peekSide = data[KEY_PEEK_SIDE] ?: 1,
             character = data[KEY_CHARACTER] ?: 0,
+            visitDurationSec = data[KEY_VISIT_DURATION] ?: 10,
+            entranceSpeed = data[KEY_ENTRANCE_SPEED] ?: 1f,
+            exitSpeed = data[KEY_EXIT_SPEED] ?: 1f,
             focusActive = data[KEY_FOCUS_ACTIVE] ?: false,
             focusEndsAt = data[KEY_FOCUS_ENDS_AT] ?: 0L,
             focusTotalMin = data[KEY_FOCUS_TOTAL_MIN] ?: 25,

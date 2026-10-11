@@ -75,6 +75,9 @@ fun SettingsScreen(onBack: () -> Unit) {
     val speechBubbles by app.prefs.speechBubbles.collectAsState(initial = true)
     val hapticFeedback by app.prefs.hapticFeedback.collectAsState(initial = true)
     val character by app.prefs.character.collectAsState(initial = 0)
+    val visitDurationSec by app.prefs.visitDurationSec.collectAsState(initial = 10)
+    val entranceSpeed by app.prefs.entranceSpeed.collectAsState(initial = 1f)
+    val exitSpeed by app.prefs.exitSpeed.collectAsState(initial = 1f)
 
     var nameDraft by remember(name) { mutableStateOf(name) }
 
@@ -139,6 +142,48 @@ fun SettingsScreen(onBack: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+            }
+        }
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = "Character timing",
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    text = "How long they stay: $visitDurationSec sec",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Slider(
+                    value = visitDurationSec.toFloat(),
+                    onValueChange = { scope.launch { app.prefs.setVisitDurationSec(it.toInt()) } },
+                    valueRange = 3f..30f,
+                    steps = 26,
+                )
+                Text(
+                    text = "Come-in speed: ${"%.1f".format(entranceSpeed)}x",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Slider(
+                    value = entranceSpeed,
+                    onValueChange = { scope.launch { app.prefs.setEntranceSpeed(it) } },
+                    valueRange = 0.5f..2f,
+                    steps = 14,
+                )
+                Text(
+                    text = "Go-away speed: ${"%.1f".format(exitSpeed)}x",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Slider(
+                    value = exitSpeed,
+                    onValueChange = { scope.launch { app.prefs.setExitSpeed(it) } },
+                    valueRange = 0.5f..2f,
+                    steps = 14,
+                )
             }
         }
 
