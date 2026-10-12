@@ -78,6 +78,8 @@ fun SettingsScreen(onBack: () -> Unit) {
     val visitDurationSec by app.prefs.visitDurationSec.collectAsState(initial = 10)
     val entranceSpeed by app.prefs.entranceSpeed.collectAsState(initial = 1f)
     val exitSpeed by app.prefs.exitSpeed.collectAsState(initial = 1f)
+    val webCarpetEnabled by app.prefs.webCarpetEnabled.collectAsState(initial = true)
+    val unlockGreetingEnabled by app.prefs.unlockGreetingEnabled.collectAsState(initial = true)
 
     var nameDraft by remember(name) { mutableStateOf(name) }
 
@@ -183,6 +185,28 @@ fun SettingsScreen(onBack: () -> Unit) {
                     onValueChange = { scope.launch { app.prefs.setExitSpeed(it) } },
                     valueRange = 0.5f..2f,
                     steps = 14,
+                )
+            }
+        }
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = "🕸️ Web fun",
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                SwitchRow(
+                    label = "Unlock greeting: Spider-Man drops in with webs",
+                    checked = unlockGreetingEnabled,
+                    onCheckedChange = { scope.launch { app.prefs.setUnlockGreetingEnabled(it) } },
+                )
+                SwitchRow(
+                    label = "30-min web carpet: webs the screen if one app is used too long",
+                    checked = webCarpetEnabled,
+                    onCheckedChange = { scope.launch { app.prefs.setWebCarpetEnabled(it) } },
                 )
             }
         }

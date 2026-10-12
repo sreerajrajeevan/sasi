@@ -1,0 +1,35 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+
+    <!-- Spider-web splat: radial lines + concentric rings, white webbing -->
+    <g
+        android:strokeColor="#F5F5F5"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round">
+        <!-- 8 radial spokes -->
+        <path android:pathData="M48,48 L48,6" />
+        <path android:pathData="M48,48 L48,90" />
+        <path android:pathData="M48,48 L6,48" />
+        <path android:pathData="M48,48 L90,48" />
+        <path android:pathData="M48,48 L18,18" />
+        <path android:pathData="M48,48 L78,78" />
+        <path android:pathData="M48,48 L78,18" />
+        <path android:pathData="M48,48 L18,78" />
+    </g>
+    <g
+        android:strokeColor="#F5F5F5"
+        android:strokeWidth="1.8"
+        android:fillColor="#00000000">
+        <!-- Concentric rings -->
+        <path android:pathData="M48,32 a16,16 0 1,0 0.1,0 a16,16 0 1,0 -0.1,0" />
+        <path android:pathData="M48,20 a28,28 0 1,0 0.1,0 a28,28 0 1,0 -0.1,0" />
+    </g>
+    <!-- Center blob (the splat) -->
+    <path
+        android:fillColor="#F5F5F5"
+        android:pathData="M42,48 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0" />
+
+</vector>
