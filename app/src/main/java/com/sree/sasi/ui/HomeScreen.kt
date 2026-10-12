@@ -467,6 +467,29 @@ fun HomeScreen(onOpenSettings: () -> Unit) {
             }
         }
 
+        if (enabled) {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Test character",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = "Make them appear right now",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                    Button(onClick = { CompanionService.testCharacter(context) }) {
+                        Text("Show")
+                    }
+                }
+            }
+        }
+
         if (enabled && visibilityName != "VISIBLE") {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
