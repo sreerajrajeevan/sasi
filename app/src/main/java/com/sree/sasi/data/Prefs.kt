@@ -134,7 +134,12 @@ class Prefs(private val context: Context) {
     }
 
     suspend fun setCompanionEnabled(value: Boolean) {
-        context.dataStore.edit { it[KEY_ENABLED] = value }
+        context.dataStore.edit {
+            it[KEY_ENABLED] = value
+            it[KEY_VISIBILITY] = if (value) "VISIBLE" else "DISABLED"
+            it[KEY_LOCK_ARMED] = false
+            it[KEY_HIDDEN_UNTIL] = 0L
+        }
     }
 
     suspend fun setOnboardingDone(value: Boolean) {
@@ -180,7 +185,11 @@ class Prefs(private val context: Context) {
     }
 
     suspend fun setVisibilityState(value: String) {
-        context.dataStore.edit { it[KEY_VISIBILITY] = value }
+        context.dataStore.edit {
+            it[KEY_VISIBILITY] = value
+            it[KEY_LOCK_ARMED] = false
+            if (value == "DISABLED") it[KEY_ENABLED] = false
+        }
     }
 
     suspend fun setHiddenUntilMillis(value: Long) {

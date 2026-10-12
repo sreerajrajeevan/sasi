@@ -105,18 +105,18 @@ class ReminderEngine {
             }
         }
 
-        // 3. Gentle nudge: bubble-only, at 45 min continuous, max once per 30 min.
-        if (input.isInteractive && input.continuousMinutes >= 45) {
-            val bucket = input.nowMillis / 1_800_000L
-            val gkey = "gentle:${input.sessionStartMillis}:$bucket"
-            if (gkey !in fired) return Reminder.GentleNudge(input.name, GENTLE_LINES.random())
-        }
-
-        // 4. Rest reminder: once per continuous screen session.
+        // 3. Rest reminder: once per continuous screen session.
         if (input.isInteractive && input.continuousMinutes >= input.restIntervalMinutes) {
             if ("rest:${input.sessionStartMillis}" !in fired) {
                 return Reminder.RestDue(input.name, input.continuousMinutes)
             }
+        }
+
+        // 4. Gentle nudge: bubble-only, at 45 min continuous, max once per 30 min.
+        if (input.isInteractive && input.continuousMinutes >= 45) {
+            val bucket = input.nowMillis / 1_800_000L
+            val gkey = "gentle:${input.sessionStartMillis}:$bucket"
+            if (gkey !in fired) return Reminder.GentleNudge(input.name, GENTLE_LINES.random())
         }
 
         // 5. Screen-time milestones at 2h / 4h / 6h, once per day each.

@@ -25,6 +25,7 @@ import com.sree.sasi.screentime.ScreenTimeTracker
 import com.sree.sasi.util.Notif
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -90,7 +91,7 @@ class CompanionService : Service() {
     private val engine = ReminderEngine()
     private val moodEngine = MoodEngine()
     private val handler = Handler(Looper.getMainLooper())
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val powerManager: PowerManager by lazy {
         getSystemService(POWER_SERVICE) as PowerManager
     }
@@ -98,18 +99,23 @@ class CompanionService : Service() {
     private var view: CompanionView? = null
     private var menuView: HideMenuView? = null
     private var menuParams: WindowManager.LayoutParams? = null
+    private var tickJob: Job? = null
     private var tickCount = 0
     private var lastInteractMillis = 0L
     private var visibility = VisibilityState.VISIBLE
     private var lockHideArmed = false
+    private var visibilityInitialized = false
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 Intent.ACTION_SCREEN_OFF -> {
                     view?.systemPaused = true
+                    tracker.tick(false)
+                    scope.launch { prefs.setContinuousMinutes(0) }
                     if (visibility == VisibilityState.HIDDEN_UNTIL_SCREEN_LOCK) {
                         // The next screen-on will restore Sasi.
+                        lockHideArmed = true
                         scope.launch { prefs.setLockHideArmed(true) }
                     }
                 }
@@ -140,30 +146,12 @@ class CompanionService : Service() {
             @Suppress("DEPRECATION")
             registerReceiver(screenReceiver, filter)
         }
-        scope.launch {
-            visibility = try {
-                VisibilityState.fromName(prefs.snapshot().visibilityState)
-            } catch (e: Exception) {
-                VisibilityState.VISIBLE
-            }
-            withContext(Dispatchers.Main) {
-                // Apply the persisted state before the first tick: a hidden
-                // Sasi must never flash visible on service start/restart.
-                if (visibility == VisibilityState.DISABLED) {
-                    stopSelf()
-                    return@withContext
-                }
-                ensureOverlay()
-                applyVisibility()
-            }
-        }
         startForegroundInternal()
-        handler.post(tickLoop)
     }
 
     private fun startForegroundInternal() {
         val notification = Notif.serviceNotification(this)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(
                 Notif.SERVICE_NOTIF_ID,
                 notification,
@@ -183,7 +171,8 @@ class CompanionService : Service() {
     }
 
     private fun doTick() {
-        scope.launch {
+        if (tickJob?.isActive == true) return
+        tickJob = scope.launch {
             val snapshot = try {
                 prefs.snapshot()
             } catch (e: Exception) {
@@ -197,7 +186,8 @@ class CompanionService : Service() {
             // Visibility state machine (authoritative state lives in Prefs).
             val newVis = VisibilityState.fromName(snapshot.visibilityState)
             lockHideArmed = snapshot.lockHideArmed
-            if (newVis != visibility) {
+            if (!visibilityInitialized || newVis != visibility) {
+                visibilityInitialized = true
                 visibility = newVis
                 withContext(Dispatchers.Main) { applyVisibility() }
                 if (visibility == VisibilityState.DISABLED) return@launch
@@ -219,7 +209,9 @@ class CompanionService : Service() {
             prefs.setContinuousMinutes(tracker.continuousMinutes)
 
             val todayMinutes = try {
-                tracker.getTodayScreenMinutes(this@CompanionService).toInt()
+                withContext(Dispatchers.IO) {
+                    tracker.getTodayScreenMinutes(this@CompanionService).toInt()
+                }
             } catch (e: Exception) {
                 0
             }
@@ -308,15 +300,12 @@ class CompanionService : Service() {
         }
         // Real warning (rest due / bedtime / wake): notification + system sound.
         val canRestore = visibility == VisibilityState.VISIBLE || visibility.restorableByReminder()
-        if (canRestore && visibility != VisibilityState.VISIBLE) {
-            prefs.setVisibilityState(VisibilityState.VISIBLE.name)
-        }
-        if (canRestore) {
+        if (canRestore && interactive) {
             withContext(Dispatchers.Main) {
                 ensureOverlay()
                 view?.showForWarning()
                 if (interactive && snapshot.speechBubbles) view?.speak(reminder.bubble())
-                view?.scheduleAutoHide(60_000L)
+                if (visibility.restorableByReminder()) view?.scheduleAutoHide(60_000L)
             }
         }
         Notif.showReminder(this@CompanionService, reminder.title(), reminder.text())
@@ -332,7 +321,6 @@ class CompanionService : Service() {
             VisibilityState.DISABLED -> {
                 dismissMenu()
                 removeOverlayView()
-                stopSelf()
             }
             else -> {
                 dismissMenu()
@@ -346,7 +334,10 @@ class CompanionService : Service() {
         // tick loop (which treats Prefs as authoritative) right after.
         visibility = state
         handler.post { applyVisibility() }
-        scope.launch { prefs.setVisibilityState(state.name) }
+        scope.launch {
+            prefs.setVisibilityState(state.name)
+            if (state == VisibilityState.DISABLED) stopSelf()
+        }
     }
 
     private fun hideForMinutes(minutes: Int) {
@@ -389,6 +380,7 @@ class CompanionService : Service() {
             return
         }
         view = companionView
+        companionView.systemPaused = !powerManager.isInteractive
 
         scope.launch {
             val s = try {
@@ -508,10 +500,14 @@ class CompanionService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        handler.removeCallbacks(tickLoop)
+        handler.postDelayed(tickLoop, 5000)
         when (intent?.action) {
             ACTION_STOP -> {
-                scope.launch { prefs.setCompanionEnabled(false) }
-                stopSelf()
+                scope.launch {
+                    prefs.setCompanionEnabled(false)
+                    stopSelf()
+                }
                 return START_NOT_STICKY
             }
             ACTION_TOGGLE -> {
@@ -523,6 +519,8 @@ class CompanionService : Service() {
                         VisibilityState.VISIBLE
                     }
                     prefs.setVisibilityState(next.name)
+                    visibility = next
+                    applyVisibility()
                     if (next == VisibilityState.VISIBLE) {
                         withContext(Dispatchers.Main) {
                             ensureOverlay()
@@ -534,16 +532,15 @@ class CompanionService : Service() {
             }
             ACTION_SHOW -> {
                 scope.launch {
+                    prefs.setCompanionEnabled(true)
                     prefs.setVisibilityState(VisibilityState.VISIBLE.name)
-                    withContext(Dispatchers.Main) {
-                        ensureOverlay()
-                        view?.showForWarning()
-                        view?.scheduleAutoHide(60_000L)
-                    }
+                    visibility = VisibilityState.VISIBLE
+                    applyVisibility()
                 }
                 return START_STICKY
             }
         }
+        doTick()
         return START_STICKY
     }
 
