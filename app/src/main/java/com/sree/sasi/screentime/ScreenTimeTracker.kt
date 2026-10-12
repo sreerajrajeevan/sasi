@@ -79,41 +79,6 @@ class ScreenTimeTracker {
         }
     }
 
-    companion object {
-        /**
-         * Returns the current foreground app package, or null if unavailable.
-         * Uses UsageEvents (requires PACKAGE_USAGE_STATS).
-         */
-        fun getForegroundApp(context: Context): String? {
-            return try {
-                val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-                val end = System.currentTimeMillis()
-                val events = usm.queryEvents(end - 10_000L, end)
-                var lastPackage: String? = null
-                val event = android.app.usage.UsageEvents.Event()
-                while (events.hasNextEvent()) {
-                    events.getNextEvent(event)
-                    if (event.eventType == android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND) {
-                        lastPackage = event.packageName
-                    }
-                }
-                lastPackage
-            } catch (e: Exception) {
-                null
-            }
-        }
-
-        /** Human-readable app label, or the package name if unavailable. */
-        fun getAppLabel(context: Context, packageName: String): String {
-            return try {
-                val pm = context.packageManager
-                pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString()
-            } catch (e: Exception) {
-                packageName
-            }
-        }
-    }
-
     /** Returns and clears the most recently ended session, if any. */
     fun takeEndedSession(): Pair<Long, Long>? {
         val ended = lastEndedSession
@@ -160,6 +125,39 @@ class ScreenTimeTracker {
                 null
             }
             return !stats.isNullOrEmpty()
+        }
+
+        /**
+         * Returns the current foreground app package, or null if unavailable.
+         * Uses UsageEvents (requires PACKAGE_USAGE_STATS).
+         */
+        fun getForegroundApp(context: Context): String? {
+            return try {
+                val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+                val end = System.currentTimeMillis()
+                val events = usm.queryEvents(end - 10_000L, end)
+                var lastPackage: String? = null
+                val event = android.app.usage.UsageEvents.Event()
+                while (events.hasNextEvent()) {
+                    events.getNextEvent(event)
+                    if (event.eventType == android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                        lastPackage = event.packageName
+                    }
+                }
+                lastPackage
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        /** Human-readable app label, or the package name if unavailable. */
+        fun getAppLabel(context: Context, packageName: String): String {
+            return try {
+                val pm = context.packageManager
+                pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString()
+            } catch (e: Exception) {
+                packageName
+            }
         }
 
         fun formatMinutes(totalMinutes: Long): String {

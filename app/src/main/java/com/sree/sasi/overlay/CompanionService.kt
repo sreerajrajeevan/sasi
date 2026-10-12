@@ -19,7 +19,6 @@ import android.view.Gravity
 import android.view.WindowManager
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import kotlinx.coroutines.flow.first
 import com.sree.sasi.SasiApp
 import com.sree.sasi.data.Achievements
 import com.sree.sasi.data.Awards
@@ -163,7 +162,7 @@ class CompanionService : Service() {
                 Intent.ACTION_USER_PRESENT -> {
                     // Phone unlocked: Spider-Man drops in with a web-shoot greeting!
                     scope.launch {
-                        val snap = prefs.snapshot.first()
+                        val snap = prefs.snapshot()
                         if (snap.unlockGreetingEnabled &&
                             visibility == VisibilityState.VISIBLE &&
                             snap.character == 0
@@ -1131,7 +1130,7 @@ class CompanionService : Service() {
             }
             ACTION_TEST_CHARACTER -> {
                 scope.launch {
-                    val snapshot = prefs.snapshot.first()
+                    val snapshot = prefs.snapshot()
                     // Only test if the companion is enabled (not turned off).
                     if (visibility == VisibilityState.DISABLED) return@launch
                     prefs.setVisibilityState(VisibilityState.VISIBLE.name)
