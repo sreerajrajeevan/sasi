@@ -1,5 +1,8 @@
 package com.sree.sasi.util
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -69,6 +72,10 @@ object Notif {
     }
 
     fun showReminder(context: Context, title: String, text: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) return
         ensureChannel(context)
         val openIntent = PendingIntent.getActivity(
             context,

@@ -45,7 +45,11 @@ wind down at bedtime, and wake up to a greeting in the morning.
 **Android Studio:** open this folder, let Gradle sync, then Run ▶ (or
 `Build > Build APK`). A debug APK is enough to try it on your phone.
 
-**CI:** every push to `main` builds `:app:assembleDebug` and uploads the APK
+**Command line:** with JDK 17 and Android SDK 36 installed, run
+`./gradlew :app:testDebugUnitTest :app:assembleDebug`. The committed wrapper
+pins Gradle 9.3.1, as required by Android Gradle Plugin 9.1.1.
+
+**CI:** every push to `main` runs regression tests and builds `:app:assembleDebug` and uploads the APK
 as the `app-debug` artifact (`.github/workflows/android.yml`).
 
 **Release AAB for Play:**

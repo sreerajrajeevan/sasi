@@ -20,6 +20,10 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -68,6 +72,14 @@ fun HomeScreen(onOpenSettings: () -> Unit) {
     val hiddenUntil by app.prefs.hiddenUntilMillis.collectAsState(initial = 0L)
 
     var poll by remember { mutableIntStateOf(0) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) poll++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     LaunchedEffect(Unit) {
         while (true) {
             delay(30_000)
@@ -97,6 +109,7 @@ fun HomeScreen(onOpenSettings: () -> Unit) {
                     CompanionService.start(context)
                 }
             } else {
+                app.prefs.setCompanionEnabled(false)
                 CompanionService.stop(context)
             }
             poll++
