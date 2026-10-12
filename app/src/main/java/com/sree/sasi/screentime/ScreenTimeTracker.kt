@@ -20,6 +20,17 @@ class ScreenTimeTracker {
         private set
 
     /**
+     * Single-app watch: how long the current foreground app has been continuously
+     * in the foreground (resets when the app changes or screen turns off).
+     * Used for the 30-minute single-app web-carpet intervention.
+     */
+    var singleAppPackage: String? = null
+        private set
+    var singleAppMinutes: Int = 0
+        private set
+    private var singleAppStartMillis: Long = 0L
+
+    /**
      * The most recently finished screen session as (startMillis, durationMillis),
      * set when the screen turns off. Consume with [takeEndedSession].
      */
@@ -44,6 +55,63 @@ class ScreenTimeTracker {
         }
         wasInteractive = isInteractive
         continuousMinutes = (continuousMillis / 60_000L).toInt()
+    }
+
+    /**
+     * Tracks how long a single app has been in the foreground. Call on each
+     * tick with the current foreground package (null if unknown). Resets when
+     * the app changes or the screen turns off.
+     */
+    fun tickForegroundApp(foregroundPackage: String?, isInteractive: Boolean, nowMillis: Long = System.currentTimeMillis()) {
+        if (!isInteractive || foregroundPackage == null) {
+            singleAppPackage = null
+            singleAppMinutes = 0
+            singleAppStartMillis = 0L
+            return
+        }
+        if (foregroundPackage != singleAppPackage) {
+            // App changed: start a new single-app session.
+            singleAppPackage = foregroundPackage
+            singleAppStartMillis = nowMillis
+            singleAppMinutes = 0
+        } else {
+            singleAppMinutes = ((nowMillis - singleAppStartMillis) / 60_000L).toInt()
+        }
+    }
+
+    companion object {
+        /**
+         * Returns the current foreground app package, or null if unavailable.
+         * Uses UsageEvents (requires PACKAGE_USAGE_STATS).
+         */
+        fun getForegroundApp(context: Context): String? {
+            return try {
+                val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+                val end = System.currentTimeMillis()
+                val events = usm.queryEvents(end - 10_000L, end)
+                var lastPackage: String? = null
+                val event = android.app.usage.UsageEvents.Event()
+                while (events.hasNextEvent()) {
+                    events.getNextEvent(event)
+                    if (event.eventType == android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                        lastPackage = event.packageName
+                    }
+                }
+                lastPackage
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        /** Human-readable app label, or the package name if unavailable. */
+        fun getAppLabel(context: Context, packageName: String): String {
+            return try {
+                val pm = context.packageManager
+                pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString()
+            } catch (e: Exception) {
+                packageName
+            }
+        }
     }
 
     /** Returns and clears the most recently ended session, if any. */

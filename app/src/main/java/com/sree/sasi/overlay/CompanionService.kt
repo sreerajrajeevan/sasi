@@ -19,6 +19,7 @@ import android.view.Gravity
 import android.view.WindowManager
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.flow.first
 import com.sree.sasi.SasiApp
 import com.sree.sasi.data.Achievements
 import com.sree.sasi.data.Awards
@@ -69,6 +70,7 @@ class CompanionService : Service() {
         const val ACTION_TOGGLE = "com.sree.sasi.action.TOGGLE"
         const val ACTION_SHOW = "com.sree.sasi.action.SHOW"
         const val ACTION_CANCEL_MODE = "com.sree.sasi.action.CANCEL_MODE"
+        const val ACTION_TEST_CHARACTER = "com.sree.sasi.action.TEST_CHARACTER"
 
         fun start(context: Context) {
             ContextCompat.startForegroundService(
@@ -88,6 +90,14 @@ class CompanionService : Service() {
             ContextCompat.startForegroundService(
                 context,
                 Intent(context, CompanionService::class.java).setAction(ACTION_SHOW),
+            )
+        }
+
+        /** Make the character appear on demand (Home "Test" button). */
+        fun testCharacter(context: Context) {
+            ContextCompat.startForegroundService(
+                context,
+                Intent(context, CompanionService::class.java).setAction(ACTION_TEST_CHARACTER),
             )
         }
 
@@ -150,6 +160,21 @@ class CompanionService : Service() {
                         }
                     }
                 }
+                Intent.ACTION_USER_PRESENT -> {
+                    // Phone unlocked: Spider-Man drops in with a web-shoot greeting!
+                    scope.launch {
+                        val snap = prefs.snapshot.first()
+                        if (snap.unlockGreetingEnabled &&
+                            visibility == VisibilityState.VISIBLE &&
+                            snap.character == 0
+                        ) {
+                            withContext(Dispatchers.Main) {
+                                ensureOverlay()
+                                view?.spideyUnlockGreeting()
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -161,6 +186,7 @@ class CompanionService : Service() {
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_OFF)
             addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_USER_PRESENT)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(screenReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
@@ -245,6 +271,30 @@ class CompanionService : Service() {
             }
             tracker.tick(interactive)
             prefs.setContinuousMinutes(tracker.continuousMinutes)
+            // Single-app tracking for the 30-minute web-carpet intervention.
+            val fgApp = if (interactive) ScreenTimeTracker.getForegroundApp(this@CompanionService) else null
+            tracker.tickForegroundApp(fgApp, interactive)
+            // 30 minutes on one app: Spider-Man webs the screen!
+            if (tracker.singleAppMinutes >= 30 && snapshot.webCarpetEnabled &&
+                visibility == VisibilityState.VISIBLE
+            ) {
+                val carpetKey = "webcarpet:${tracker.singleAppPackage}:${Prefs.todayKey()}"
+                if (carpetKey !in snapshot.firedKeys) {
+                    prefs.markFired(carpetKey)
+                    val appLabel = tracker.singleAppPackage?.let {
+                        ScreenTimeTracker.getAppLabel(this@CompanionService, it)
+                    } ?: "this app"
+                    withContext(Dispatchers.Main) {
+                        ensureOverlay()
+                        view?.spideyWebCarpet(appLabel)
+                    }
+                    Notif.showReminder(
+                        this@CompanionService,
+                        "🕸️ Webbed!",
+                        "30 minutes straight on $appLabel — Spider-Man intervened!",
+                    )
+                }
+            }
 
             val todayMinutes = try {
                 tracker.getTodayScreenMinutes(this@CompanionService).toInt()
@@ -1075,6 +1125,27 @@ class CompanionService : Service() {
                     withContext(Dispatchers.Main) {
                         ensureOverlay()
                         view?.ensureVisible()
+                    }
+                }
+                return START_STICKY
+            }
+            ACTION_TEST_CHARACTER -> {
+                scope.launch {
+                    val snapshot = prefs.snapshot.first()
+                    // Only test if the companion is enabled (not turned off).
+                    if (visibility == VisibilityState.DISABLED) return@launch
+                    prefs.setVisibilityState(VisibilityState.VISIBLE.name)
+                    withContext(Dispatchers.Main) {
+                        ensureOverlay()
+                        val name = snapshot.companionName.ifBlank { "Sasi" }
+                        val msg = listOf(
+                            "Hey! $name here! 👋",
+                            "You called? 😊",
+                            "Reporting for duty! 🕷️",
+                        ).random()
+                        view?.walkInForReminder(
+                            if (snapshot.speechBubbles) msg else "",
+                        )
                     }
                 }
                 return START_STICKY
