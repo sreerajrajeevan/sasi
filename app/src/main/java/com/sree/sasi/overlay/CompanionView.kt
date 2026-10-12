@@ -162,6 +162,12 @@ class CompanionView @JvmOverloads constructor(
     private lateinit var spideyBubble: TextView
     /** Realistic cat image (replaces the vector cat for the Cat character). */
     private lateinit var catRealView: ImageView
+    // Web-shoot greeting: lines fired left/right + splat decals.
+    private lateinit var webShotLeft: View
+    private lateinit var webShotRight: View
+    private lateinit var splatLeft: ImageView
+    private lateinit var splatRight: ImageView
+    private val carpetSplats = mutableListOf<View>()
     private var spideyDropAnim: ValueAnimator? = null
     private var spideySwingAnim: ValueAnimator? = null
     private var peekSide = 1 // 0 = left edge, 1 = right edge, 2 = bottom edge
@@ -463,8 +469,221 @@ class CompanionView @JvmOverloads constructor(
         }
     }
 
+    /**
+     * Unlock greeting: Spider-Man drops down, shoots webs left & right,
+     * holds, then retracts and disappears.
+     */
+    fun spideyUnlockGreeting() {
+        walkOutRunnable?.let { handler.removeCallbacks(it) }
+        walkOutRunnable = null
+        // Always Spider-Man for the greeting (it's his signature move).
+        positionForSpideyReminder()
+        charHolder.visibility = GONE
+        catRealView.visibility = GONE
+        spideyContainer.visibility = VISIBLE
+        if (visibility != VISIBLE) {
+            visibility = VISIBLE
+            alpha = 1f
+        }
+        showingReminder = true
+
+        // Reset web-shooters.
+        webShotLeft.visibility = GONE
+        webShotRight.visibility = GONE
+        splatLeft.visibility = GONE
+        splatRight.visibility = GONE
+        spideyHideBubbleNow()
+
+        // Drop in fast.
+        spideyDropAnim?.cancel()
+        spideySwingAnim?.cancel()
+        val dropPx = dp(240).toFloat()
+        webLine.scaleY = 0f
+        webLine.pivotY = 0f
+        spideyView.translationY = -dropPx
+        spideySwing.rotation = 0f
+
+        spideyDropAnim = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 700
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { anim ->
+                val f = anim.animatedValue as Float
+                webLine.scaleY = f
+                spideyView.translationY = -dropPx + dropPx * f
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    // Shoot webs!
+                    fireWebShot()
+                    // Hold, then clean up and leave.
+                    handler.postDelayed({
+                        fadeWebShots {
+                            spideyRetractAndHide()
+                        }
+                    }, 2200)
+                }
+            })
+            start()
+        }
+    }
+
+    /** Fires the left/right web lines with splat pops. */
+    private fun fireWebShot() {
+        webShotLeft.visibility = VISIBLE
+        webShotRight.visibility = VISIBLE
+        webShotLeft.pivotX = webShotLeft.width.toFloat() // from Spidey outward
+        webShotRight.pivotX = 0f
+        webShotLeft.scaleX = 0f
+        webShotRight.scaleX = 0f
+        webShotLeft.animate().scaleX(1f).setDuration(250).start()
+        webShotRight.animate().scaleX(1f).setDuration(250).withEndAction {
+            // Splats pop in at the impact points.
+            splatLeft.visibility = VISIBLE
+            splatRight.visibility = VISIBLE
+            splatLeft.scaleX = 0f; splatLeft.scaleY = 0f
+            splatRight.scaleX = 0f; splatRight.scaleY = 0f
+            splatLeft.animate().scaleX(1f).scaleY(1f).setDuration(200).start()
+            splatRight.animate().scaleX(1f).scaleY(1f).setDuration(200).start()
+        }.start()
+        // A cheerful thwip bubble.
+        spideyBubble.text = "Thwip thwip! 👋"
+        spideyBubble.visibility = VISIBLE
+        spideyBubble.animate().cancel()
+        spideyBubble.animate().alpha(1f).setDuration(200).start()
+    }
+
+    private fun fadeWebShots(onDone: () -> Unit) {
+        spideyHideBubbleNow()
+        val fade = { v: View ->
+            v.animate().alpha(0f).setDuration(400).withEndAction {
+                v.visibility = GONE
+                v.alpha = 1f
+            }.start()
+        }
+        fade(webShotLeft); fade(webShotRight); fade(splatLeft); fade(splatRight)
+        handler.postDelayed({ onDone() }, 450)
+    }
+
+    /**
+     * 30-minute single-app intervention: Spider-Man covers the screen with
+     * webs and scolds you (lovingly).
+     */
+    fun spideyWebCarpet(appLabel: String) {
+        walkOutRunnable?.let { handler.removeCallbacks(it) }
+        walkOutRunnable = null
+        // Fullscreen window for maximum web coverage.
+        val w = winParams ?: return
+        w.x = 0; w.y = 0; w.width = screenW; w.height = screenH
+        try { wm?.updateViewLayout(this, w) } catch (e: Exception) { }
+        charHolder.visibility = GONE
+        catRealView.visibility = GONE
+        spideyContainer.visibility = VISIBLE
+        // Hide the normal drop web; Spidey hangs in the carpet container instead.
+        webLine.visibility = GONE
+        if (visibility != VISIBLE) {
+            visibility = VISIBLE
+            alpha = 1f
+        }
+        showingReminder = true
+
+        // Clear old splats.
+        carpetSplats.forEach { spideyContainer.removeView(it) }
+        carpetSplats.clear()
+
+        // Drop Spidey to the top.
+        spideyDropAnim?.cancel()
+        spideySwingAnim?.cancel()
+        val dropPx = dp(200).toFloat()
+        spideyView.translationY = -dropPx
+        spideySwing.rotation = 0f
+        // Reposition Spidey for the carpet (top-center of fullscreen).
+        (spideyView.layoutParams as LayoutParams).apply {
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            topMargin = dp(40)
+        }
+
+        spideyDropAnim = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 800
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { anim ->
+                spideyView.translationY = -dropPx + dropPx * (anim.animatedValue as Float)
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    startSpideySway()
+                    fireWebCarpet(appLabel)
+                }
+            })
+            start()
+        }
+    }
+
+    /** Covers the screen with web splats + scolding dialogue. */
+    private fun fireWebCarpet(appLabel: String) {
+        val messages = listOf(
+            "30 minutes on $appLabel?! 🕸️",
+            "Why don't you stop? 🥺",
+            "The webs say: take a break! 🕷️",
+            "Okay, this is an intervention. 😤",
+        )
+        spideyBubble.text = messages.random()
+        spideyBubble.visibility = VISIBLE
+        spideyBubble.animate().cancel()
+        spideyBubble.animate().alpha(1f).setDuration(200).start()
+
+        // 8 splats at random positions, staggered for drama.
+        val random = java.util.Random()
+        repeat(8) { i ->
+            handler.postDelayed({
+                val splat = ImageView(context).apply {
+                    val sz = dp(56 + random.nextInt(40))
+                    layoutParams = LayoutParams(sz, sz)
+                    setImageResource(R.drawable.web_splat)
+                    alpha = 0f
+                    scaleX = 0f; scaleY = 0f
+                }
+                carpetSplats.add(splat)
+                // Random position, avoiding the very top (Spidey) and bottom.
+                val x = random.nextInt((screenW - dp(96)).coerceAtLeast(1))
+                val y = dp(200) + random.nextInt((screenH - dp(400)).coerceAtLeast(1))
+                splat.x = x.toFloat()
+                splat.y = y.toFloat()
+                spideyContainer.addView(splat)
+                splat.animate()
+                    .alpha(1f).scaleX(1f).scaleY(1f)
+                    .setDuration(250)
+                    .setInterpolator(DecelerateInterpolator())
+                    .start()
+            }, (i * 180).toLong())
+        }
+
+        // Hold the shame, then clean up.
+        handler.postDelayed({
+            // Fade all splats.
+            carpetSplats.toList().forEach { v ->
+                v.animate().alpha(0f).setDuration(500).withEndAction {
+                    spideyContainer.removeView(v)
+                    carpetSplats.remove(v)
+                }.start()
+            }
+            spideyHideBubbleNow()
+            handler.postDelayed({
+                // Restore the drop web and retract.
+                webLine.visibility = VISIBLE
+                spideyRetractAndHide()
+            }, 600)
+        }, 6500)
+    }
+
     private fun hideCompletely() {
         showingReminder = false
+        carpetSplats.forEach { spideyContainer.removeView(it) }
+        carpetSplats.clear()
+        webShotLeft.visibility = GONE
+        webShotRight.visibility = GONE
+        splatLeft.visibility = GONE
+        splatRight.visibility = GONE
+        webLine.visibility = VISIBLE
         charHolder.animate().cancel()
         charHolder.translationX = 0f
         charHolder.rotation = 0f
@@ -653,6 +872,50 @@ class CompanionView @JvmOverloads constructor(
         spideySwing.addView(spideyView)
         spideyContainer.addView(spideySwing)
         spideyContainer.addView(spideyBubble)
+
+        // Web-shooters: horizontal lines fired from Spidey's hands + splats.
+        // Positioned at Spidey's mid-height (below the 240dp drop web).
+        val shotY = dp(240 + 48)
+        webShotLeft = View(context).apply {
+            layoutParams = LayoutParams(dp(80), dp(4)).apply {
+                gravity = Gravity.TOP or Gravity.END
+                topMargin = shotY
+                rightMargin = dp(110) // starts at center (Spidey)
+            }
+            setBackgroundColor(ContextCompat.getColor(context, R.color.ink))
+            visibility = GONE
+        }
+        webShotRight = View(context).apply {
+            layoutParams = LayoutParams(dp(80), dp(4)).apply {
+                gravity = Gravity.TOP or Gravity.START
+                topMargin = shotY
+                leftMargin = dp(110)
+            }
+            setBackgroundColor(ContextCompat.getColor(context, R.color.ink))
+            visibility = GONE
+        }
+        splatLeft = ImageView(context).apply {
+            layoutParams = LayoutParams(dp(56), dp(56)).apply {
+                gravity = Gravity.TOP or Gravity.START
+                topMargin = shotY - dp(26)
+                leftMargin = dp(8)
+            }
+            setImageResource(R.drawable.web_splat)
+            visibility = GONE
+        }
+        splatRight = ImageView(context).apply {
+            layoutParams = LayoutParams(dp(56), dp(56)).apply {
+                gravity = Gravity.TOP or Gravity.END
+                topMargin = shotY - dp(26)
+                rightMargin = dp(8)
+            }
+            setImageResource(R.drawable.web_splat)
+            visibility = GONE
+        }
+        spideyContainer.addView(webShotLeft)
+        spideyContainer.addView(webShotRight)
+        spideyContainer.addView(splatLeft)
+        spideyContainer.addView(splatRight)
         spideyContainer.setOnTouchListener(dragTouchListener)
 
         // Realistic cat: a real kitten photo that sprints in for reminders.
