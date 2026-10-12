@@ -286,7 +286,7 @@ class CompanionService : Service() {
                     } ?: "this app"
                     withContext(Dispatchers.Main) {
                         ensureOverlay()
-                        view?.spideyWebCarpet(appLabel)
+                        view?.spideyWebCarpet(appLabel, tracker.singleAppPackage)
                     }
                     Notif.showReminder(
                         this@CompanionService,

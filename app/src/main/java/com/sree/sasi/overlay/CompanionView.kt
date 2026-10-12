@@ -168,6 +168,7 @@ class CompanionView @JvmOverloads constructor(
     private lateinit var splatLeft: ImageView
     private lateinit var splatRight: ImageView
     private val carpetSplats = mutableListOf<View>()
+    private var lastCarpetPackage: String? = null
     private var spideyDropAnim: ValueAnimator? = null
     private var spideySwingAnim: ValueAnimator? = null
     private var peekSide = 1 // 0 = left edge, 1 = right edge, 2 = bottom edge
@@ -568,7 +569,8 @@ class CompanionView @JvmOverloads constructor(
      * 30-minute single-app intervention: Spider-Man covers the screen with
      * webs and scolds you (lovingly).
      */
-    fun spideyWebCarpet(appLabel: String) {
+    fun spideyWebCarpet(appLabel: String, packageName: String? = null) {
+        lastCarpetPackage = packageName
         walkOutRunnable?.let { handler.removeCallbacks(it) }
         walkOutRunnable = null
         // Fullscreen window for maximum web coverage.
@@ -618,15 +620,71 @@ class CompanionView @JvmOverloads constructor(
         }
     }
 
-    /** Covers the screen with web splats + scolding dialogue. */
-    private fun fireWebCarpet(appLabel: String) {
-        val messages = listOf(
+    /**
+     * App-aware scolding for the web carpet: the lecture changes based on
+     * what kind of app has held the user hostage.
+     */
+    private fun webCarpetLine(appLabel: String): String {
+        val pkg = lastCarpetPackage?.lowercase() ?: ""
+        val generic = listOf(
             "30 minutes on $appLabel?! 🕸️",
             "Why don't you stop? 🥺",
             "The webs say: take a break! 🕷️",
             "Okay, this is an intervention. 😤",
         )
-        spideyBubble.text = messages.random()
+        val social = listOf(
+            "Still scrolling $appLabel? The feed will survive without you! 📱",
+            "30 min of scrolling?! Your thumb deserves a break. 👍",
+            "The algorithm can wait. Your eyes can't. 👀",
+        )
+        val video = listOf(
+            "One more video on $appLabel? That's what you said 10 videos ago! 📺",
+            "30 minutes of $appLabel?! Even I take intermissions. 🎬",
+            "Plot twist: the main character takes a break now. 🍿",
+        )
+        val game = listOf(
+            "Boss fight on $appLabel can wait — your eyes need a revive! 🎮",
+            "30 min gaming?! Even superheroes pause. ⏸️",
+            "Save point reached: touch grass. 🌱",
+        )
+        val browser = listOf(
+            "Down the $appLabel rabbit hole again? 🕳️",
+            "30 min of tabs?! Close a few, rest your eyes. 🗂️",
+        )
+        val music = listOf(
+            "Great taste in $appLabel, but 30 min staring at it? 🎵",
+            "Let the music play — give your eyes a break! 🎧",
+        )
+        val pool = when {
+            pkg.contains("instagram") || pkg.contains("facebook") || pkg.contains("twitter") ||
+                pkg.contains("threads") || pkg.contains("snapchat") || pkg.contains("tiktok") ||
+                pkg.contains("linkedin") || pkg.contains("reddit") || pkg.contains("whatsapp") ||
+                pkg.contains("telegram") -> social
+            pkg.contains("youtube") || pkg.contains("netflix") || pkg.contains("hotstar") ||
+                pkg.contains("primevideo") || pkg.contains("disney") || pkg.contains("mxplayer") ||
+                pkg.contains("vlc") -> video
+            pkg.contains("chrome") || pkg.contains("firefox") || pkg.contains("browser") ||
+                pkg.contains("opera") || pkg.contains("brave") -> browser
+            pkg.contains("spotify") || pkg.contains("music") || pkg.contains("saavn") ||
+                pkg.contains("wynk") -> music
+            isGamePackage(pkg) -> game
+            else -> generic
+        }
+        return pool.random()
+    }
+
+    private fun isGamePackage(pkg: String): Boolean {
+        return try {
+            val ai = context.packageManager.getApplicationInfo(pkg, 0)
+            ai.category == android.content.pm.ApplicationInfo.CATEGORY_GAME
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /** Covers the screen with web splats + scolding dialogue. */
+    private fun fireWebCarpet(appLabel: String) {
+        spideyBubble.text = webCarpetLine(appLabel)
         spideyBubble.visibility = VISIBLE
         spideyBubble.animate().cancel()
         spideyBubble.animate().alpha(1f).setDuration(200).start()
