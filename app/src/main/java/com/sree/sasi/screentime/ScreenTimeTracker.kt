@@ -22,7 +22,7 @@ class ScreenTimeTracker {
     /**
      * Single-app watch: how long the current foreground app has been continuously
      * in the foreground (resets when the app changes or screen turns off).
-     * Used for the 30-minute single-app web-carpet intervention.
+     * Used for the web-carpet intervention (threshold configurable in Settings).
      */
     var singleAppPackage: String? = null
         private set
