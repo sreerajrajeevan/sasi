@@ -470,6 +470,7 @@ class CompanionService : Service() {
                 view?.walkInForReminder(
                     if (snapshot.speechBubbles) reminder.bubble() else "",
                 )
+                if (visibility.restorableByReminder()) view?.scheduleAutoHide(60_000L)
             }
         }
         if (reminder is ReminderEngine.Reminder.GentleNudge) {
