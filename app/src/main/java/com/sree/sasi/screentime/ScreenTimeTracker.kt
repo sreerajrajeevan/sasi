@@ -117,6 +117,35 @@ class ScreenTimeTracker {
     }
 
     companion object {
+        /** True when the app can actually read usage stats (permission granted). */
+        fun hasUsageAccess(context: Context): Boolean {
+            val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+            return appOps.checkOpNoThrow(
+                AppOpsManager.OPSTR_GET_USAGE_STATS,
+                Process.myUid(),
+                context.packageName,
+            ) == AppOpsManager.MODE_ALLOWED
+        }
+
+        fun formatMinutes(totalMinutes: Long): String {
+            val hours = totalMinutes / 60
+            val minutes = totalMinutes % 60
+            return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
+        }
+
+        /** "12:34" or "1:02:03" for timer countdowns. */
+        fun formatCountdown(millis: Long): String {
+            val totalSec = (millis / 1000).toInt().coerceAtLeast(0)
+            val hours = totalSec / 3600
+            val minutes = (totalSec % 3600) / 60
+            val seconds = totalSec % 60
+            return if (hours > 0) {
+                "%d:%02d:%02d".format(hours, minutes, seconds)
+            } else {
+                "%02d:%02d".format(minutes, seconds)
+            }
+        }
+
         /**
          * Returns the current foreground app package, or null if unavailable.
          * Uses UsageEvents (requires PACKAGE_USAGE_STATS).
@@ -148,22 +177,6 @@ class ScreenTimeTracker {
             } catch (e: Exception) {
                 packageName
             }
-        }
-
-        /** True when the app can actually read usage stats (permission granted). */
-        fun hasUsageAccess(context: Context): Boolean {
-            val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-            return appOps.checkOpNoThrow(
-                AppOpsManager.OPSTR_GET_USAGE_STATS,
-                Process.myUid(),
-                context.packageName,
-            ) == AppOpsManager.MODE_ALLOWED
-        }
-
-        fun formatMinutes(totalMinutes: Long): String {
-            val hours = totalMinutes / 60
-            val minutes = totalMinutes % 60
-            return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
         }
     }
 }
