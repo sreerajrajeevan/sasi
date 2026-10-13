@@ -183,7 +183,9 @@ class Prefs(private val context: Context) {
     val companionName: Flow<String> =
         context.dataStore.data.map { it[KEY_NAME] ?: "Sasi" }
     val companionEnabled: Flow<Boolean> =
-        context.dataStore.data.map { it[KEY_ENABLED] ?: false }
+        context.dataStore.data.map {
+            (it[KEY_ENABLED] ?: false) && it[KEY_VISIBILITY] != "DISABLED"
+        }
     val onboardingDone: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_ONBOARDING] ?: false }
     val restMinutes: Flow<Int> =
@@ -319,7 +321,12 @@ class Prefs(private val context: Context) {
     }
 
     suspend fun setCompanionEnabled(value: Boolean) {
-        context.dataStore.edit { it[KEY_ENABLED] = value }
+        context.dataStore.edit {
+            it[KEY_ENABLED] = value
+            it[KEY_VISIBILITY] = if (value) "VISIBLE" else "DISABLED"
+            it[KEY_LOCK_ARMED] = false
+            it[KEY_HIDDEN_UNTIL] = 0L
+        }
     }
 
     suspend fun setOnboardingDone(value: Boolean) {
@@ -365,7 +372,11 @@ class Prefs(private val context: Context) {
     }
 
     suspend fun setVisibilityState(value: String) {
-        context.dataStore.edit { it[KEY_VISIBILITY] = value }
+        context.dataStore.edit {
+            it[KEY_VISIBILITY] = value
+            it[KEY_LOCK_ARMED] = false
+            if (value == "DISABLED") it[KEY_ENABLED] = false
+        }
     }
 
     suspend fun setHiddenUntilMillis(value: Long) {
@@ -654,7 +665,8 @@ class Prefs(private val context: Context) {
         val data = context.dataStore.data.first()
         return PrefsSnapshot(
             companionName = data[KEY_NAME] ?: "Sasi",
-            companionEnabled = data[KEY_ENABLED] ?: false,
+            // Older builds could save DISABLED while leaving the enabled flag true.
+            companionEnabled = (data[KEY_ENABLED] ?: false) && data[KEY_VISIBILITY] != "DISABLED",
             onboardingDone = data[KEY_ONBOARDING] ?: false,
             restMinutes = data[KEY_REST_MINUTES] ?: 50,
             bedtimeHour = data[KEY_BEDTIME_HOUR] ?: 23,
