@@ -1,6 +1,8 @@
 package com.sree.sasi.screentime
 
+import android.app.AppOpsManager
 import android.app.usage.UsageStatsManager
+import android.os.Process
 import android.content.Context
 import java.util.Calendar
 
@@ -30,29 +32,31 @@ class ScreenTimeTracker {
         private set
     private var singleAppStartMillis: Long = 0L
 
-    /**
-     * The most recently finished screen session as (startMillis, durationMillis),
-     * set when the screen turns off. Consume with [takeEndedSession].
-     */
-    var lastEndedSession: Pair<Long, Long>? = null
-        private set
-
     private var continuousMillis: Long = 0L
     private var wasInteractive: Boolean = false
 
-    fun tick(isInteractive: Boolean, tickMillis: Long = 5000L) {
+    private var lastElapsedMillis: Long? = null
+
+    fun tick(
+        isInteractive: Boolean,
+        nowMillis: Long = System.currentTimeMillis(),
+        elapsedMillis: Long = System.nanoTime() / 1_000_000L,
+    ) {
         if (isInteractive) {
             if (!wasInteractive) {
                 // New session: screen just turned on.
-                sessionStartMillis = System.currentTimeMillis()
+                sessionStartMillis = nowMillis
                 continuousMillis = 0L
             }
-            continuousMillis += tickMillis
+            if (wasInteractive) {
+                continuousMillis += (elapsedMillis - (lastElapsedMillis ?: elapsedMillis))
+                    .coerceAtLeast(0L)
+            }
         } else if (wasInteractive) {
             // Screen turned off: session ends, continuous counter resets.
-            lastEndedSession = sessionStartMillis to continuousMillis
             continuousMillis = 0L
         }
+        lastElapsedMillis = elapsedMillis
         wasInteractive = isInteractive
         continuousMinutes = (continuousMillis / 60_000L).toInt()
     }
@@ -89,13 +93,6 @@ class ScreenTimeTracker {
         }
     }
 
-    /** Returns and clears the most recently ended session, if any. */
-    fun takeEndedSession(): Pair<Long, Long>? {
-        val ended = lastEndedSession
-        lastEndedSession = null
-        return ended
-    }
-
     fun getTodayScreenMinutes(context: Context): Long {
         val usageStatsManager =
             context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
@@ -120,23 +117,6 @@ class ScreenTimeTracker {
     }
 
     companion object {
-        /** True when the app can actually read usage stats (permission granted). */
-        fun hasUsageAccess(context: Context): Boolean {
-            val usageStatsManager =
-                context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-            val now = System.currentTimeMillis()
-            val stats = try {
-                usageStatsManager.queryUsageStats(
-                    UsageStatsManager.INTERVAL_DAILY,
-                    now - 60_000L,
-                    now,
-                )
-            } catch (e: Exception) {
-                null
-            }
-            return !stats.isNullOrEmpty()
-        }
-
         /**
          * Returns the current foreground app package, or null if unavailable.
          * Uses UsageEvents (requires PACKAGE_USAGE_STATS).
@@ -170,23 +150,20 @@ class ScreenTimeTracker {
             }
         }
 
+        /** True when the app can actually read usage stats (permission granted). */
+        fun hasUsageAccess(context: Context): Boolean {
+            val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+            return appOps.checkOpNoThrow(
+                AppOpsManager.OPSTR_GET_USAGE_STATS,
+                Process.myUid(),
+                context.packageName,
+            ) == AppOpsManager.MODE_ALLOWED
+        }
+
         fun formatMinutes(totalMinutes: Long): String {
             val hours = totalMinutes / 60
             val minutes = totalMinutes % 60
             return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
-        }
-
-        /** "12:34" or "1:02:03" for timer countdowns. */
-        fun formatCountdown(millis: Long): String {
-            val totalSec = (millis / 1000).toInt().coerceAtLeast(0)
-            val hours = totalSec / 3600
-            val minutes = (totalSec % 3600) / 60
-            val seconds = totalSec % 60
-            return if (hours > 0) {
-                "%d:%02d:%02d".format(hours, minutes, seconds)
-            } else {
-                "%02d:%02d".format(minutes, seconds)
-            }
         }
     }
 }

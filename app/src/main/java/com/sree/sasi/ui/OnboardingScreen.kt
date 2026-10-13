@@ -230,10 +230,10 @@ fun OnboardingScreen() {
                 4 -> Button(onClick = { step++ }) {
                     Text(stringResource(R.string.action_skip))
                 }
-                5 -> Button(onClick = ::finish) {
+                5 -> Button(onClick = ::finish, enabled = overlayGranted) {
                     Text(stringResource(R.string.action_finish))
                 }
-                else -> Button(onClick = { step++ }) {
+                else -> Button(onClick = { step++ }, enabled = step != 1 || overlayGranted) {
                     Text(stringResource(R.string.action_next))
                 }
             }

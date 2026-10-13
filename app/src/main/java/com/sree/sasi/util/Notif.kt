@@ -4,7 +4,10 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import android.content.Intent
 import android.media.RingtoneManager
 import android.os.Build
@@ -95,6 +98,10 @@ object Notif {
     }
 
     fun showReminder(context: Context, title: String, text: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) return
         ensureChannel(context)
         val openIntent = PendingIntent.getActivity(
             context,
@@ -120,6 +127,10 @@ object Notif {
      * transitions, where the Phase 1 alarm-style sound would be too much.
      */
     fun showQuietReminder(context: Context, title: String, text: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) return
         ensureChannel(context)
         val openIntent = PendingIntent.getActivity(
             context,
