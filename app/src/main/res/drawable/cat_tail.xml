@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- curved tail; tinted at runtime to match the body. Pivots near its base. -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="@color/sasi_body"
+        android:strokeWidth="13"
+        android:strokeLineCap="round"
+        android:pathData="M22,90 Q64,92 86,48" />
+
+</vector>

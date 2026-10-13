@@ -7,7 +7,10 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import android.content.Intent
 import android.media.RingtoneManager
 import android.os.Build
@@ -39,7 +42,19 @@ object Notif {
         }
     }
 
-    fun serviceNotification(context: Context): Notification {
+    fun serviceNotification(context: Context): Notification =
+        serviceNotification(context, modeText = null, showCancelAction = false)
+
+    /**
+     * Foreground-service notification. When a focus/break timer is active,
+     * [modeText] (e.g. "🎯 Focus 12:34") replaces the idle line and a Cancel
+     * action appears.
+     */
+    fun serviceNotification(
+        context: Context,
+        modeText: String?,
+        showCancelAction: Boolean,
+    ): Notification {
         ensureChannel(context)
         val openIntent = PendingIntent.getActivity(
             context,
@@ -59,16 +74,30 @@ object Notif {
             Intent(context, CompanionService::class.java).setAction(CompanionService.ACTION_TOGGLE),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        return NotificationCompat.Builder(context, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_heart)
             .setContentTitle(context.getString(R.string.service_notif_title))
-            .setContentText(context.getString(R.string.service_notif_text))
+            .setContentText(modeText ?: context.getString(R.string.service_notif_text))
             .setContentIntent(openIntent)
             .addAction(R.drawable.ic_heart, "Show / Hide", toggleIntent)
-            .addAction(R.drawable.ic_heart, context.getString(R.string.action_stop), stopIntent)
+        if (showCancelAction) {
+            val cancelIntent = PendingIntent.getService(
+                context,
+                4,
+                Intent(context, CompanionService::class.java)
+                    .setAction(CompanionService.ACTION_CANCEL_MODE),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            builder.addAction(
+                R.drawable.ic_heart,
+                context.getString(R.string.notif_cancel),
+                cancelIntent,
+            )
+        }
+        builder.addAction(R.drawable.ic_heart, context.getString(R.string.action_stop), stopIntent)
             .setOngoing(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .build()
+        return builder.build()
     }
 
     fun showReminder(context: Context, title: String, text: String) {
@@ -92,6 +121,34 @@ object Notif {
             .setAutoCancel(true)
             .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .build()
+        NotificationManagerCompat.from(context).notify(REMINDER_NOTIF_ID, notification)
+    }
+
+    /**
+     * Gentle notification without sound — used for break endings and pomodoro
+     * transitions, where the Phase 1 alarm-style sound would be too much.
+     */
+    fun showQuietReminder(context: Context, title: String, text: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) return
+        ensureChannel(context)
+        val openIntent = PendingIntent.getActivity(
+            context,
+            2,
+            Intent(context, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_heart)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setContentIntent(openIntent)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
         NotificationManagerCompat.from(context).notify(REMINDER_NOTIF_ID, notification)
     }

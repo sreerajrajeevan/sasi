@@ -67,6 +67,9 @@ class HideMenuView @JvmOverloads constructor(
     /** Rough height of the card, used to anchor it above Sasi. */
     fun estimatedHeightPx(): Int = dp(6 * 48 + 24)
 
+    /** Rough width of the card, used to anchor it at the edge while peeking. */
+    fun estimatedWidthPx(): Int = dp(240)
+
     /** Gentle pop-in when the menu appears. */
     fun animateIn() {
         alpha = 0f

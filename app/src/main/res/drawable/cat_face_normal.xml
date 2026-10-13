@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- left eye -->
+    <path
+        android:fillColor="@color/ink"
+        android:pathData="M35,52 C32.2,52 30,55.1 30,59 C30,62.9 32.2,66 35,66 C37.8,66 40,62.9 40,59 C40,55.1 37.8,52 35,52 Z" />
+    <!-- right eye -->
+    <path
+        android:fillColor="@color/ink"
+        android:pathData="M73,52 C70.2,52 68,55.1 68,59 C68,62.9 70.2,66 73,66 C75.8,66 78,62.9 78,59 C78,55.1 75.8,52 73,52 Z" />
+    <!-- tiny triangle nose -->
+    <path
+        android:fillColor="@color/ink"
+        android:pathData="M50,66 L58,66 L54,71 Z" />
+    <!-- cat w-mouth -->
+    <path
+        android:strokeColor="@color/ink"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M54,71 Q50,75 46,73 M54,71 Q58,75 62,73" />
+    <!-- whiskers -->
+    <path
+        android:strokeColor="@color/ink"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:pathData="M10,62 L28,65 M10,70 L28,70 M12,78 L29,75 M98,62 L80,65 M98,70 L80,70 M96,78 L79,75" />
+    <!-- blush -->
+    <path
+        android:fillColor="@color/blush"
+        android:fillAlpha="0.55"
+        android:pathData="M21,68 a6,4 0 1,0 12,0 a6,4 0 1,0 -12,0" />
+    <path
+        android:fillColor="@color/blush"
+        android:fillAlpha="0.55"
+        android:pathData="M75,68 a6,4 0 1,0 12,0 a6,4 0 1,0 -12,0" />
+
+</vector>

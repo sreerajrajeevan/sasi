@@ -21,6 +21,17 @@ class ScreenTimeTracker {
     var sessionStartMillis: Long = System.currentTimeMillis()
         private set
 
+    /**
+     * Single-app watch: how long the current foreground app has been continuously
+     * in the foreground (resets when the app changes or screen turns off).
+     * Used for the web-carpet intervention (threshold configurable in Settings).
+     */
+    var singleAppPackage: String? = null
+        private set
+    var singleAppMinutes: Int = 0
+        private set
+    private var singleAppStartMillis: Long = 0L
+
     private var continuousMillis: Long = 0L
     private var wasInteractive: Boolean = false
 
@@ -48,6 +59,38 @@ class ScreenTimeTracker {
         lastElapsedMillis = elapsedMillis
         wasInteractive = isInteractive
         continuousMinutes = (continuousMillis / 60_000L).toInt()
+    }
+
+    /**
+     * Tracks how long a single app has been in the foreground. Call on each
+     * tick with the current foreground package (null if unknown). Resets when
+     * the app changes or the screen turns off.
+     */
+    fun tickForegroundApp(foregroundPackage: String?, isInteractive: Boolean, nowMillis: Long = System.currentTimeMillis()) {
+        if (!isInteractive) {
+            singleAppPackage = null
+            singleAppMinutes = 0
+            singleAppStartMillis = 0L
+            return
+        }
+        if (foregroundPackage == null) {
+            // No foreground event in the query window — this happens when the
+            // user has been on the SAME app for a while (only one
+            // MOVE_TO_FOREGROUND event, from when they opened it). Don't reset;
+            // keep accumulating with the previously tracked app.
+            if (singleAppPackage != null && singleAppStartMillis > 0L) {
+                singleAppMinutes = ((nowMillis - singleAppStartMillis) / 60_000L).toInt()
+            }
+            return
+        }
+        if (foregroundPackage != singleAppPackage) {
+            // App changed: start a new single-app session.
+            singleAppPackage = foregroundPackage
+            singleAppStartMillis = nowMillis
+            singleAppMinutes = 0
+        } else {
+            singleAppMinutes = ((nowMillis - singleAppStartMillis) / 60_000L).toInt()
+        }
     }
 
     fun getTodayScreenMinutes(context: Context): Long {
@@ -88,6 +131,52 @@ class ScreenTimeTracker {
             val hours = totalMinutes / 60
             val minutes = totalMinutes % 60
             return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
+        }
+
+        /** "12:34" or "1:02:03" for timer countdowns. */
+        fun formatCountdown(millis: Long): String {
+            val totalSec = (millis / 1000).toInt().coerceAtLeast(0)
+            val hours = totalSec / 3600
+            val minutes = (totalSec % 3600) / 60
+            val seconds = totalSec % 60
+            return if (hours > 0) {
+                "%d:%02d:%02d".format(hours, minutes, seconds)
+            } else {
+                "%02d:%02d".format(minutes, seconds)
+            }
+        }
+
+        /**
+         * Returns the current foreground app package, or null if unavailable.
+         * Uses UsageEvents (requires PACKAGE_USAGE_STATS).
+         */
+        fun getForegroundApp(context: Context): String? {
+            return try {
+                val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+                val end = System.currentTimeMillis()
+                val events = usm.queryEvents(end - 10_000L, end)
+                var lastPackage: String? = null
+                val event = android.app.usage.UsageEvents.Event()
+                while (events.hasNextEvent()) {
+                    events.getNextEvent(event)
+                    if (event.eventType == android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                        lastPackage = event.packageName
+                    }
+                }
+                lastPackage
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        /** Human-readable app label, or the package name if unavailable. */
+        fun getAppLabel(context: Context, packageName: String): String {
+            return try {
+                val pm = context.packageManager
+                pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString()
+            } catch (e: Exception) {
+                packageName
+            }
         }
     }
 }

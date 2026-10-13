@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- happy ^ ^ eyes -->
+    <path
+        android:strokeColor="@color/ink"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M30,60 Q35,52 40,60" />
+    <path
+        android:strokeColor="@color/ink"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M68,60 Q73,52 78,60" />
+    <!-- tiny nose -->
+    <path
+        android:fillColor="@color/ink"
+        android:pathData="M51,64 L57,64 L54,68 Z" />
+    <!-- open smile -->
+    <path
+        android:fillColor="@color/ink"
+        android:pathData="M44,70 A10,9 0 0,1 64,70 Z" />
+    <!-- whiskers -->
+    <path
+        android:strokeColor="@color/ink"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:pathData="M10,62 L28,65 M10,70 L28,70 M12,78 L29,75 M98,62 L80,65 M98,70 L80,70 M96,78 L79,75" />
+    <!-- blush -->
+    <path
+        android:fillColor="@color/blush"
+        android:fillAlpha="0.55"
+        android:pathData="M21,68 a6,4 0 1,0 12,0 a6,4 0 1,0 -12,0" />
+    <path
+        android:fillColor="@color/blush"
+        android:fillAlpha="0.55"
+        android:pathData="M75,68 a6,4 0 1,0 12,0 a6,4 0 1,0 -12,0" />
+
+</vector>

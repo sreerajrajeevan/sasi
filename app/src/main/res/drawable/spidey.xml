@@ -1,0 +1,79 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+
+    <!-- Raised right arm holding the web -->
+    <path
+        android:fillColor="#E53935"
+        android:pathData="M53,56 L63,22 L69,24 L59,58 Z" />
+    <!-- Raised hand -->
+    <path
+        android:fillColor="#E53935"
+        android:pathData="M62,17 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0" />
+
+    <!-- Left arm hanging down -->
+    <path
+        android:fillColor="#E53935"
+        android:pathData="M40,54 L33,70 L37,73 L44,57 Z" />
+    <path
+        android:fillColor="#E53935"
+        android:pathData="M32,68 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0" />
+
+    <!-- Legs (blue, dangling) -->
+    <path
+        android:fillColor="#1E88E5"
+        android:pathData="M41,68 L47,68 L46,88 L40,88 Z" />
+    <path
+        android:fillColor="#1E88E5"
+        android:pathData="M51,68 L57,68 L58,88 L52,88 Z" />
+    <!-- Boots (red) -->
+    <path
+        android:fillColor="#E53935"
+        android:pathData="M40,86 L46,86 L46,92 L40,92 Z" />
+    <path
+        android:fillColor="#E53935"
+        android:pathData="M52,86 L58,86 L58,92 L52,92 Z" />
+
+    <!-- Torso (red) -->
+    <path
+        android:fillColor="#E53935"
+        android:pathData="M38,50 L58,50 L56,70 L40,70 Z" />
+    <!-- Belt (dark) -->
+    <path
+        android:fillColor="#212121"
+        android:pathData="M40,64 L56,64 L56,67 L40,67 Z" />
+
+    <!-- Head (red mask) -->
+    <path
+        android:fillColor="#E53935"
+        android:pathData="M48,8 C34,8 24,19 24,31 C24,43 34,51 48,51 C62,51 72,43 72,31 C72,19 62,8 48,8 Z" />
+
+    <!-- Mask web pattern (subtle) -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#212121"
+        android:strokeWidth="0.8"
+        android:pathData="M48,8 L48,51 M24,30 L72,30 M31,14 L65,46 M65,14 L31,46" />
+
+    <!-- Eyes (white, angular Spidey eyes) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#212121"
+        android:strokeWidth="1.5"
+        android:pathData="M28,26 L43,23 L38,38 L28,36 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#212121"
+        android:strokeWidth="1.5"
+        android:pathData="M68,26 L53,23 L58,38 L68,36 Z" />
+    <!-- Eye shine -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M33,28 l4,-1 l-1,4 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M63,28 l-4,-1 l1,4 Z" />
+
+</vector>

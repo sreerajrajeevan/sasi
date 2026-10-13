@@ -92,4 +92,44 @@
     <string name="visibility_until_reminder">Sasi is hidden until the next reminder.</string>
     <string name="visibility_disabled">Companion is off.</string>
     <string name="action_bring_back">Bring Sasi Back</string>
+
+    <!-- Focus & break (Phase 2) -->
+    <string name="mode_idle_title">What shall we do?</string>
+    <string name="action_start_focus">Start Focus</string>
+    <string name="action_take_break">Take a Break</string>
+    <string name="action_cancel_mode">Cancel</string>
+    <string name="focus_dialog_title">Start a focus session</string>
+    <string name="focus_duration_label">Duration</string>
+    <string name="focus_custom_hint">Custom minutes</string>
+    <string name="focus_pomodoro_label">Pomodoro: 25 min focus + 5 min break, repeating</string>
+    <string name="action_start">Start</string>
+    <string name="break_dialog_title">Take a break</string>
+    <string name="break_custom_hint">Custom minutes</string>
+    <string name="today_sessions_label">Sessions today: %1$d</string>
+    <string name="today_focus_label">Focus today: %1$s</string>
+    <string name="week_title">This week</string>
+    <string name="week_totals_screen">Screen time: %1$s</string>
+    <string name="week_totals_focus">Focus: %1$s · %2$d sessions</string>
+    <string name="week_best_day">Best focus day: %1$s (%2$s)</string>
+    <string name="week_no_data">Your week will appear here once there is data.</string>
+    <string name="notif_cancel">Cancel</string>
+
+    <!-- Progression (Phase 3) -->
+    <string name="progress_title">%1$s\'s Progress</string>
+    <string name="progress_level">Level %1$d</string>
+    <string name="progress_xp">%1$d / %2$d XP to next level</string>
+    <string name="progress_coins">🪙 %1$d coins</string>
+    <string name="progress_energy">Energy</string>
+    <string name="progress_bond">❤️ Bond</string>
+    <string name="missions_title">Today\'s Missions</string>
+    <string name="missions_empty">Your missions will appear here.</string>
+    <string name="mission_progress">%1$d / %2$d</string>
+    <string name="achievements_title">Achievements (%1$d/%2$d)</string>
+    <string name="achievements_empty">Keep up the healthy habits to earn trophies!</string>
+    <string name="peek_mode_label">Peek from screen edge</string>
+    <string name="peek_mode_desc">Sasi lives as a sliver at the screen edge; tap to invite it out</string>
+    <string name="peek_side_label">Peek from</string>
+    <string name="peek_side_left">Left</string>
+    <string name="peek_side_right">Right</string>
+    <string name="peek_side_bottom">Bottom</string>
 </resources>
