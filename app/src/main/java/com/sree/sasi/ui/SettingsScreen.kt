@@ -80,6 +80,7 @@ fun SettingsScreen(onBack: () -> Unit) {
     val exitSpeed by app.prefs.exitSpeed.collectAsState(initial = 1f)
     val webCarpetEnabled by app.prefs.webCarpetEnabled.collectAsState(initial = true)
     val unlockGreetingEnabled by app.prefs.unlockGreetingEnabled.collectAsState(initial = true)
+    val webCarpetMinutes by app.prefs.webCarpetMinutes.collectAsState(initial = 30)
 
     var nameDraft by remember(name) { mutableStateOf(name) }
 
@@ -204,9 +205,19 @@ fun SettingsScreen(onBack: () -> Unit) {
                     onCheckedChange = { scope.launch { app.prefs.setUnlockGreetingEnabled(it) } },
                 )
                 SwitchRow(
-                    label = "30-min web carpet: webs the screen if one app is used too long",
+                    label = "Web carpet: webs the screen if one app is used too long",
                     checked = webCarpetEnabled,
                     onCheckedChange = { scope.launch { app.prefs.setWebCarpetEnabled(it) } },
+                )
+                Text(
+                    text = "Web carpet after $webCarpetMinutes min on one app",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Slider(
+                    value = webCarpetMinutes.toFloat(),
+                    onValueChange = { scope.launch { app.prefs.setWebCarpetMinutes(it.toInt()) } },
+                    valueRange = 5f..60f,
+                    steps = 10,
                 )
             }
         }

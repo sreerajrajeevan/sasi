@@ -70,6 +70,7 @@ class CompanionService : Service() {
         const val ACTION_SHOW = "com.sree.sasi.action.SHOW"
         const val ACTION_CANCEL_MODE = "com.sree.sasi.action.CANCEL_MODE"
         const val ACTION_TEST_CHARACTER = "com.sree.sasi.action.TEST_CHARACTER"
+        const val ACTION_TEST_CARPET = "com.sree.sasi.action.TEST_CARPET"
 
         fun start(context: Context) {
             ContextCompat.startForegroundService(
@@ -97,6 +98,14 @@ class CompanionService : Service() {
             ContextCompat.startForegroundService(
                 context,
                 Intent(context, CompanionService::class.java).setAction(ACTION_TEST_CHARACTER),
+            )
+        }
+
+        /** Test the web carpet animation on demand (Home button). */
+        fun testCarpet(context: Context) {
+            ContextCompat.startForegroundService(
+                context,
+                Intent(context, CompanionService::class.java).setAction(ACTION_TEST_CARPET),
             )
         }
 
@@ -273,8 +282,8 @@ class CompanionService : Service() {
             // Single-app tracking for the 30-minute web-carpet intervention.
             val fgApp = if (interactive) ScreenTimeTracker.getForegroundApp(this@CompanionService) else null
             tracker.tickForegroundApp(fgApp, interactive)
-            // 30 minutes on one app: Spider-Man webs the screen!
-            if (tracker.singleAppMinutes >= 30 && snapshot.webCarpetEnabled &&
+            // Web carpet: Spider-Man webs the screen after too long on one app!
+            if (tracker.singleAppMinutes >= snapshot.webCarpetMinutes && snapshot.webCarpetEnabled &&
                 visibility == VisibilityState.VISIBLE
             ) {
                 val carpetKey = "webcarpet:${tracker.singleAppPackage}:${Prefs.todayKey()}"
@@ -290,7 +299,7 @@ class CompanionService : Service() {
                     Notif.showReminder(
                         this@CompanionService,
                         "🕸️ Webbed!",
-                        "30 minutes straight on $appLabel — Spider-Man intervened!",
+                        "${snapshot.webCarpetMinutes} minutes straight on $appLabel — Spider-Man intervened!",
                     )
                 }
             }
@@ -1145,6 +1154,17 @@ class CompanionService : Service() {
                         view?.walkInForReminder(
                             if (snapshot.speechBubbles) msg else "",
                         )
+                    }
+                }
+                return START_STICKY
+            }
+            ACTION_TEST_CARPET -> {
+                scope.launch {
+                    if (visibility == VisibilityState.DISABLED) return@launch
+                    prefs.setVisibilityState(VisibilityState.VISIBLE.name)
+                    withContext(Dispatchers.Main) {
+                        ensureOverlay()
+                        view?.spideyWebCarpet("TestApp", "com.test.app")
                     }
                 }
                 return START_STICKY
