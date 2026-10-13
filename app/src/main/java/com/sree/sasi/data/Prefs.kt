@@ -53,6 +53,7 @@ data class PrefsSnapshot(
     val exitSpeed: Float,
     val webCarpetEnabled: Boolean,
     val unlockGreetingEnabled: Boolean,
+    val webCarpetMinutes: Int,
     // Phase 2: focus/break timers + history
     val focusActive: Boolean,
     val focusEndsAt: Long,
@@ -126,6 +127,7 @@ class Prefs(private val context: Context) {
         private val KEY_EXIT_SPEED = floatPreferencesKey("exit_speed") // 0.5x - 2x
         private val KEY_WEB_CARPET = booleanPreferencesKey("web_carpet_enabled")
         private val KEY_UNLOCK_GREETING = booleanPreferencesKey("unlock_greeting_enabled")
+        private val KEY_WEB_CARPET_MINUTES = intPreferencesKey("web_carpet_minutes")
         private val KEY_FOCUS_ACTIVE = booleanPreferencesKey("focus_active")
         private val KEY_FOCUS_ENDS_AT = longPreferencesKey("focus_ends_at")
         private val KEY_FOCUS_TOTAL_MIN = intPreferencesKey("focus_total_min")
@@ -242,6 +244,8 @@ class Prefs(private val context: Context) {
         context.dataStore.data.map { it[KEY_WEB_CARPET] ?: true }
     val unlockGreetingEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_UNLOCK_GREETING] ?: true }
+    val webCarpetMinutes: Flow<Int> =
+        context.dataStore.data.map { it[KEY_WEB_CARPET_MINUTES] ?: 30 }
     val focusActive: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_FOCUS_ACTIVE] ?: false }
     val focusEndsAt: Flow<Long> =
@@ -423,6 +427,10 @@ class Prefs(private val context: Context) {
 
     suspend fun setUnlockGreetingEnabled(value: Boolean) {
         context.dataStore.edit { it[KEY_UNLOCK_GREETING] = value }
+    }
+
+    suspend fun setWebCarpetMinutes(value: Int) {
+        context.dataStore.edit { it[KEY_WEB_CARPET_MINUTES] = value.coerceIn(5, 60) }
     }
 
     suspend fun setPeekSide(value: Int) {
@@ -678,6 +686,7 @@ class Prefs(private val context: Context) {
             exitSpeed = data[KEY_EXIT_SPEED] ?: 1f,
             webCarpetEnabled = data[KEY_WEB_CARPET] ?: true,
             unlockGreetingEnabled = data[KEY_UNLOCK_GREETING] ?: true,
+            webCarpetMinutes = data[KEY_WEB_CARPET_MINUTES] ?: 30,
             focusActive = data[KEY_FOCUS_ACTIVE] ?: false,
             focusEndsAt = data[KEY_FOCUS_ENDS_AT] ?: 0L,
             focusTotalMin = data[KEY_FOCUS_TOTAL_MIN] ?: 25,

@@ -63,10 +63,20 @@ class ScreenTimeTracker {
      * the app changes or the screen turns off.
      */
     fun tickForegroundApp(foregroundPackage: String?, isInteractive: Boolean, nowMillis: Long = System.currentTimeMillis()) {
-        if (!isInteractive || foregroundPackage == null) {
+        if (!isInteractive) {
             singleAppPackage = null
             singleAppMinutes = 0
             singleAppStartMillis = 0L
+            return
+        }
+        if (foregroundPackage == null) {
+            // No foreground event in the query window — this happens when the
+            // user has been on the SAME app for a while (only one
+            // MOVE_TO_FOREGROUND event, from when they opened it). Don't reset;
+            // keep accumulating with the previously tracked app.
+            if (singleAppPackage != null && singleAppStartMillis > 0L) {
+                singleAppMinutes = ((nowMillis - singleAppStartMillis) / 60_000L).toInt()
+            }
             return
         }
         if (foregroundPackage != singleAppPackage) {
