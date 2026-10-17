@@ -1,11 +1,13 @@
 package com.sree.sasi.overlay
 
+import android.Manifest
 import android.app.ActivityManager
 import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
 import android.os.Build
@@ -434,17 +436,24 @@ class CompanionService : Service() {
             }
             if (modeText != lastModeNotifText) {
                 lastModeNotifText = modeText
-                try {
-                    NotificationManagerCompat.from(this@CompanionService).notify(
-                        Notif.SERVICE_NOTIF_ID,
-                        Notif.serviceNotification(
-                            this@CompanionService,
-                            modeText,
-                            modeText != null,
-                        ),
-                    )
-                } catch (e: Exception) {
-                    // Notifications revoked; the timer itself still works.
+                // POST_NOTIFICATIONS is revocable; check explicitly (lint MissingPermission).
+                val canNotify = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                    ContextCompat.checkSelfPermission(
+                        this@CompanionService, Manifest.permission.POST_NOTIFICATIONS,
+                    ) == PackageManager.PERMISSION_GRANTED
+                if (canNotify) {
+                    try {
+                        NotificationManagerCompat.from(this@CompanionService).notify(
+                            Notif.SERVICE_NOTIF_ID,
+                            Notif.serviceNotification(
+                                this@CompanionService,
+                                modeText,
+                                modeText != null,
+                            ),
+                        )
+                    } catch (e: Exception) {
+                        // Notifications revoked; the timer itself still works.
+                    }
                 }
             }
         }
