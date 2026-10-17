@@ -36,6 +36,7 @@ class ScreenTimeTracker {
     private var wasInteractive: Boolean = false
 
     private var lastElapsedMillis: Long? = null
+    private var sessionEndedPending = false
 
     fun tick(
         isInteractive: Boolean,
@@ -55,10 +56,22 @@ class ScreenTimeTracker {
         } else if (wasInteractive) {
             // Screen turned off: session ends, continuous counter resets.
             continuousMillis = 0L
+            sessionEndedPending = true
         }
         lastElapsedMillis = elapsedMillis
         wasInteractive = isInteractive
         continuousMinutes = (continuousMillis / 60_000L).toInt()
+    }
+
+    /**
+     * Consumes the "session ended" signal: returns the start time of the
+     * session that just ended, or null if none ended since the last call.
+     * Used to count sessions in history.
+     */
+    fun takeEndedSession(): Long? {
+        if (!sessionEndedPending) return null
+        sessionEndedPending = false
+        return sessionStartMillis
     }
 
     /**
