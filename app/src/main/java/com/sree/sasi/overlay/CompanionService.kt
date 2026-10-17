@@ -275,7 +275,7 @@ class CompanionService : Service() {
             tracker.tickForegroundApp(fgApp, interactive)
             // Web carpet: Spider-Man webs the screen after too long on one app!
             if (tracker.singleAppMinutes >= snapshot.webCarpetMinutes && snapshot.webCarpetEnabled &&
-                visibility == VisibilityState.VISIBLE
+                visibility != VisibilityState.DISABLED
             ) {
                 val carpetKey = "webcarpet:${tracker.singleAppPackage}:${Prefs.todayKey()}"
                 if (carpetKey !in snapshot.firedKeys) {

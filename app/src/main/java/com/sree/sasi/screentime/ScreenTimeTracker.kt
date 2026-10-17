@@ -147,10 +147,20 @@ class ScreenTimeTracker {
         }
 
         /**
-         * Returns the current foreground app package, or null if unavailable.
-         * Uses UsageEvents (requires PACKAGE_USAGE_STATS).
+         * Best guess at the current foreground app package, or null if
+         * unavailable. Uses UsageEvents (requires PACKAGE_USAGE_STATS).
+         *
+         * Falls back to the most-recently-used app when no foreground event
+         * exists in the short window — e.g. the service (re)started while the
+         * user was already inside an app. Without this the single-app timer
+         * could never bootstrap and the web carpet would never fire.
          */
         fun getForegroundApp(context: Context): String? {
+            queryForegroundEvent(context)?.let { return it }
+            return queryMostRecentApp(context)
+        }
+
+        private fun queryForegroundEvent(context: Context): String? {
             return try {
                 val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
                 val end = System.currentTimeMillis()
@@ -164,6 +174,23 @@ class ScreenTimeTracker {
                     }
                 }
                 lastPackage
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        private fun queryMostRecentApp(context: Context): String? {
+            return try {
+                val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+                val end = System.currentTimeMillis()
+                val stats = usm.queryUsageStats(
+                    UsageStatsManager.INTERVAL_DAILY,
+                    end - 60_000L,
+                    end,
+                )
+                stats.filter { it.lastTimeUsed >= end - 60_000L }
+                    .maxByOrNull { it.lastTimeUsed }
+                    ?.packageName
             } catch (e: Exception) {
                 null
             }
